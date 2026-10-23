@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Range Calc">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg">
+<title>Range Calculator</title>
+<style>
+  :root {
+    --bg: #f2f2f7; --card: #fff; --text: #000; --muted: #6c6c70; --line: #d1d1d6; --accent: #0a60ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #000; --card: #1c1c1e; --text: #fff; --muted: #98989f; --line: #38383a; --accent: #4c8dff; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    max-width: 560px; margin-inline: auto;
+  }
+  h1 { font-size: 28px; margin: 8px 0 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 20px 16px 6px; font-weight: 500; }
+  .card { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); min-height: 48px; }
+  .row:first-child { border-top: 0; }
+  label { flex: none; }
+  input[type=text], input[type=number], select {
+    font: inherit; color: var(--text); background: transparent; border: 0; text-align: right; flex: 1; min-width: 0; outline: none;
+  }
+  select { text-align-last: right; }
+  input::placeholder { color: var(--muted); }
+  .note { font-size: 13px; color: var(--muted); padding: 8px 16px 12px; }
+  .seg { display: flex; background: var(--bg); border-radius: 9px; padding: 2px; width: 100%; }
+  .seg button { flex: 1; font: inherit; font-size: 15px; padding: 6px; border: 0; background: transparent; color: var(--text); border-radius: 7px; }
+  .seg button[aria-pressed=true] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.25); font-weight: 600; }
+  .result { text-align: center; font-size: 52px; font-weight: 600; padding: 18px 0 14px; font-variant-numeric: tabular-nums; }
+  .result.empty { color: var(--muted); }
+  .formula { font-size: 13px; color: var(--muted); padding: 0 16px 14px; text-align: center; }
+  .toggle { width: 51px; height: 31px; accent-color: var(--accent); }
+</style>
+</head>
+<body>
+<h1>Range Calculator</h1>
+
+<h2>Target</h2>
+<div class="card">
+  <div class="row"><label for="custom">Custom height</label><input id="custom" class="toggle" type="checkbox"></div>
+  <div class="row" id="pickRow"><label for="target">Object</label><select id="target"></select></div>
+  <div class="row" id="heightRow"><label>Height</label><span id="height"></span></div>
+  <div class="row" id="customRow" hidden><label for="customH">Height (cm)</label><input id="customH" type="text" inputmode="decimal" placeholder="cm"></div>
+  <div class="note" id="note"></div>
+</div>
+
+<h2>Measured size</h2>
+<div class="card">
+  <div class="row"><label for="mils">Size in reticle (mil)</label><input id="mils" type="text" inputmode="decimal" placeholder="mil"></div>
+</div>
+
+<h2>Range</h2>
+<div class="card">
+  <div class="row"><div class="seg" role="group" aria-label="Unit">
+    <button type="button" data-unit="m" aria-pressed="true">m</button>
+    <button type="button" data-unit="yd" aria-pressed="false">yd</button>
+  </div></div>
+  <div class="result empty" id="result" aria-live="polite">—</div>
+  <div class="formula">Range (m) = target size (cm) × 10 ÷ size in mils</div>
+</div>
+
+<script>
+"use strict";
+
+/* ---- Catalog (heights in cm). approximate = typical value, not a fixed standard. ---- */
+const CATEGORIES = [["people","People"],["vehicles","Vehicles"],["household","Household"],["street","Street"],["sports","Sports"]];
+const TARGETS = [
+  {id:"adult-male",name:"Adult male (average)",category:"people",heightCm:175.3,approximate:true,note:"US adult male mean stature, CDC NHANES 2015-2018"},
+  {id:"adult-female",name:"Adult female (average)",category:"people",heightCm:161.3,approximate:true,note:"US adult female mean stature, CDC NHANES 2015-2018"},
+  {id:"sedan",name:"Sedan",category:"vehicles",heightCm:145,approximate:true,note:"Typical roof height"},
+  {id:"suv",name:"SUV",category:"vehicles",heightCm:170,approximate:true,note:"Typical roof height"},
+  {id:"minivan",name:"Minivan",category:"vehicles",heightCm:175,approximate:true,note:"Typical roof height"},
+  {id:"pickup",name:"Pickup truck",category:"vehicles",heightCm:190,approximate:true,note:"Typical full-size cab height"},
+  {id:"license-plate",name:"License plate (US)",category:"vehicles",heightCm:15.2,approximate:false,note:"6 in standard plate height"},
+  {id:"interior-door",name:"Door",category:"household",heightCm:203.2,approximate:false,note:"80 in standard door height"},
+  {id:"garage-door-single",name:"Garage door (single)",category:"household",heightCm:213.4,approximate:true,note:"7 ft common height"},
+  {id:"trash-cart",name:"Wheeled trash cart",category:"household",heightCm:107,approximate:true,note:"Approx. 96-gal cart; varies by maker"},
+  {id:"fence-4ft",name:"Fence (4 ft)",category:"household",heightCm:121.9,approximate:true,note:"Nominal height"},
+  {id:"fence-6ft",name:"Privacy fence (6 ft)",category:"household",heightCm:182.9,approximate:true,note:"Nominal height"},
+  {id:"stop-sign",name:"Stop sign face",category:"street",heightCm:76.2,approximate:false,note:"30 in octagon, MUTCD conventional road size"},
+  {id:"traffic-cone",name:"Traffic cone",category:"street",heightCm:71.1,approximate:true,note:"28 in common size"},
+  {id:"hoop-rim",name:"Basketball rim height",category:"sports",heightCm:304.8,approximate:false,note:"10 ft regulation"},
+  {id:"backboard",name:"Basketball backboard",category:"sports",heightCm:106.7,approximate:true,note:"42 in regulation height"}
+];
+
+const YARDS_PER_METER = 1.0936133;
+
+/* range (m) = target size (cm) * 10 / size in mils; null for invalid input */
+function rangeMeters(sizeCm, mils) {
+  if (!Number.isFinite(sizeCm) || sizeCm <= 0) return null;
+  if (!Number.isFinite(mils) || mils <= 0) return null;
+  return sizeCm * 10 / mils;
+}
+
+/* Accepts "1.5" or "1,5" */
+function parseNum(text) {
+  const t = String(text).trim().replace(",", ".");
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(t)) return NaN;
+  return Number(t);
+}
+
+/* ---- UI ---- */
+const $ = id => document.getElementById(id);
+const state = { unit: "m" };
+
+function init() {
+  const sel = $("target");
+  for (const [key, title] of CATEGORIES) {
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const t of TARGETS.filter(t => t.category === key)) {
+      const o = document.createElement("option");
+      o.value = t.id; o.textContent = t.name;
+      group.appendChild(o);
+    }
+    sel.appendChild(group);
+  }
+  for (const id of ["target","custom","customH","mils"]) {
+    $(id).addEventListener("input", update);
+    $(id).addEventListener("change", update);
+  }
+  document.querySelectorAll("[data-unit]").forEach(b => b.addEventListener("click", () => {
+    state.unit = b.dataset.unit;
+    document.querySelectorAll("[data-unit]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    update();
+  }));
+  update();
+}
+
+function update() {
+  const custom = $("custom").checked;
+  $("pickRow").hidden = $("heightRow").hidden = custom;
+  $("note").hidden = custom;
+  $("customRow").hidden = !custom;
+
+  let heightCm;
+  if (custom) {
+    heightCm = parseNum($("customH").value);
+  } else {
+    const t = TARGETS.find(t => t.id === $("target").value);
+    heightCm = t.heightCm;
+    $("height").textContent = `${+t.heightCm.toFixed(1)} cm${t.approximate ? " (approx.)" : ""}`;
+    $("note").textContent = t.note || "";
+  }
+
+  const m = rangeMeters(heightCm, parseNum($("mils").value));
+  const out = $("result");
+  if (m === null) {
+    out.textContent = "—"; out.classList.add("empty");
+  } else {
+    const v = state.unit === "m" ? m : m * YARDS_PER_METER;
+    out.textContent = `${Math.round(v)} ${state.unit}`;
+    out.classList.remove("empty");
+  }
+}
+
+init();
+
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
