@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="app.css">
 <title>Par Timer · Line Ready</title>
 </head>
-<body>
+<body class="par-page">
 <header class="titlebar">
   <button class="iconbtn" id="menuBtn" type="button" aria-label="Open menu" aria-controls="drawer" aria-expanded="false"></button>
   <h1>Par Timer</h1>
@@ -75,6 +75,13 @@
     <div class="note">Volume here is the beep level inside the app. The phone's volume still applies.</div>
   </div>
 </fieldset>
+
+<button class="lockbtn" id="lockBtn" type="button" aria-pressed="false" aria-label="Hold for 3 seconds to lock the screen">
+  <svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><circle id="lockRing" cx="32" cy="32" r="29"/></svg>
+  <svg class="icon-open" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 7.3-2.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  <svg class="icon-closed" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+</button>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 "use strict";
@@ -307,6 +314,60 @@ function load() {
   }
 }
 function updateStepRow() { $("stepRow").hidden = $("progress").value === "none"; }
+
+/* ---------- screen lock (hold 3 s to lock / unlock) ---------- */
+
+const HOLD_MS = 3000, RING_LEN = 2 * Math.PI * 29;
+const lockBtn = $("lockBtn"), lockRing = $("lockRing"), toast = $("toast");
+let locked = false, holding = false, holdStart = 0, holdRaf = 0, toastTimer = 0;
+lockRing.style.strokeDasharray = RING_LEN;
+lockRing.style.strokeDashoffset = RING_LEN;
+
+function showToast(text) {
+  toast.textContent = text; toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 1800);
+}
+
+function setLocked(on) {
+  locked = on;
+  /* inert blocks taps and focus on everything except the lock button; the page itself still scrolls */
+  document.querySelectorAll("body > :not(#lockBtn):not(#toast):not(script)").forEach(el => { el.inert = on; });
+  if (on && document.activeElement && document.activeElement !== lockBtn) document.activeElement.blur();
+  lockBtn.setAttribute("aria-pressed", String(on));
+  lockBtn.setAttribute("aria-label", on ? "Locked. Hold for 3 seconds to unlock" : "Hold for 3 seconds to lock the screen");
+  showToast(on ? "Locked" : "Unlocked");
+}
+
+function holdTick() {
+  if (!holding) return;
+  const p = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
+  lockRing.style.strokeDashoffset = RING_LEN * (1 - p);
+  if (p >= 1) { cancelHold(); setLocked(!locked); return; }
+  holdRaf = requestAnimationFrame(holdTick);
+}
+function beginHold() {
+  if (holding) return;
+  holding = true; holdStart = performance.now();
+  lockBtn.classList.add("holding");
+  holdRaf = requestAnimationFrame(holdTick);
+}
+function cancelHold() {
+  holding = false; cancelAnimationFrame(holdRaf);
+  lockBtn.classList.remove("holding");
+  lockRing.style.strokeDashoffset = RING_LEN;
+}
+
+lockBtn.addEventListener("pointerdown", e => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  try { lockBtn.setPointerCapture(e.pointerId); } catch (_) {}
+  beginHold();
+});
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) lockBtn.addEventListener(type, cancelHold);
+lockBtn.addEventListener("contextmenu", e => e.preventDefault());
+lockBtn.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); beginHold(); } });
+lockBtn.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") cancelHold(); });
+lockBtn.addEventListener("blur", cancelHold);
 
 load();
 updateStepRow();
