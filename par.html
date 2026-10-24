@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Range Calc">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="app.css">
+<title>Par Timer</title>
+</head>
+<body>
+<header class="titlebar">
+  <button class="iconbtn" id="menuBtn" type="button" aria-label="Open menu" aria-controls="drawer" aria-expanded="false"></button>
+  <h1>Par Timer</h1>
+</header>
+
+<div class="card">
+  <div class="display" id="display" data-phase="idle">
+    <div class="big" id="big">—</div>
+    <div class="sub" id="sub">Press Start</div>
+  </div>
+  <div class="error" id="error" role="alert" hidden></div>
+  <div class="btnrow">
+    <button class="btn" id="startBtn" type="button">Start</button>
+    <button class="btn stop" id="stopBtn" type="button" hidden>Stop</button>
+    <button class="btn secondary" id="testBtn" type="button">Test beeps</button>
+  </div>
+  <div class="sr-only" id="sr" aria-live="polite"></div>
+</div>
+
+<fieldset id="settings">
+  <h2>Par</h2>
+  <div class="card">
+    <div class="row"><label for="parTime">Par time (s)</label><input id="parTime" type="text" inputmode="decimal"></div>
+    <div class="row"><label for="reps">Reps</label><input id="reps" type="text" inputmode="numeric"></div>
+    <div class="row"><label for="progress">Par per rep</label>
+      <select id="progress">
+        <option value="none">Same</option>
+        <option value="shorter">Shorter each rep</option>
+        <option value="longer">Longer each rep</option>
+      </select></div>
+    <div class="row" id="stepRow"><label for="step">Change per rep (s)</label><input id="step" type="text" inputmode="decimal"></div>
+  </div>
+
+  <h2>Timing</h2>
+  <div class="card">
+    <div class="row"><label for="rest">Rest between reps (s)</label><input id="rest" type="text" inputmode="decimal"></div>
+    <div class="row"><label for="delayMin">Start delay min (s)</label><input id="delayMin" type="text" inputmode="decimal"></div>
+    <div class="row"><label for="delayMax">Start delay max (s)</label><input id="delayMax" type="text" inputmode="decimal"></div>
+    <div class="note">The delay is chosen at random between min and max before each start beep. Set both equal for a fixed delay. For reps after the first, the wait after the previous par beep is the rest plus the delay. Par is measured from the start of the start beep.</div>
+  </div>
+
+  <h2>Sound</h2>
+  <div class="card">
+    <div class="row"><label for="startHz">Start beep (Hz)</label><input id="startHz" type="text" inputmode="numeric"></div>
+    <div class="row"><label for="endHz">Par beep (Hz)</label><input id="endHz" type="text" inputmode="numeric"></div>
+    <div class="row"><label for="volume">Volume</label><input id="volume" type="range" min="10" max="100" step="5"></div>
+    <div class="note">Volume here is the beep level inside the app. The phone's volume still applies.</div>
+  </div>
+</fieldset>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+const DEFAULTS = { parTime: "3", reps: "5", progress: "none", step: "0.1", rest: "5",
+                   delayMin: "1", delayMax: "4", startHz: "2000", endHz: "1000", volume: "80" };
+const FIELDS = Object.keys(DEFAULTS);
+const STORE_KEY = "rangecalc-par-v1";
+const BEEP_SEC = 0.3, MIN_PAR = 0.2, MAX_REPS = 100, TAIL_SEC = 0.6;
+
+/* ---------- pure logic ---------- */
+
+function parseNum(text) {
+  const t = String(text).trim().replace(",", ".");
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(t)) return NaN;
+  return Number(t);
+}
+
+function readConfig() {
+  const v = id => $(id).value;
+  const cfg = {
+    parTime: parseNum(v("parTime")), reps: parseNum(v("reps")), progress: v("progress"),
+    step: parseNum(v("step")), rest: parseNum(v("rest")),
+    delayMin: parseNum(v("delayMin")), delayMax: parseNum(v("delayMax")),
+    startHz: parseNum(v("startHz")), endHz: parseNum(v("endHz")), volume: parseNum(v("volume")) / 100
+  };
+  const bad = (cond, msg) => cond ? msg : null;
+  const error =
+    bad(!(cfg.parTime >= MIN_PAR && cfg.parTime <= 600), `Par time must be between ${MIN_PAR} and 600 seconds.`) ||
+    bad(!(Number.isInteger(cfg.reps) && cfg.reps >= 1 && cfg.reps <= MAX_REPS), `Reps must be a whole number from 1 to ${MAX_REPS}.`) ||
+    bad(cfg.progress !== "none" && !(cfg.step >= 0 && cfg.step <= 60), "Change per rep must be between 0 and 60 seconds.") ||
+    bad(!(cfg.rest >= 0 && cfg.rest <= 600), "Rest must be between 0 and 600 seconds.") ||
+    bad(!(cfg.delayMin >= 0 && cfg.delayMin <= 60), "Start delay min must be between 0 and 60 seconds.") ||
+    bad(!(cfg.delayMax >= cfg.delayMin && cfg.delayMax <= 60), "Start delay max must be between the min and 60 seconds.") ||
+    bad(!(cfg.startHz >= 200 && cfg.startHz <= 8000 && cfg.endHz >= 200 && cfg.endHz <= 8000), "Beep pitch must be between 200 and 8000 Hz.");
+  return error ? { error } : { cfg };
+}
+
+/* Absolute event times (seconds on the audio clock) for every rep. */
+function buildTimeline(cfg, t0, rand = Math.random) {
+  const reps = [];
+  let cursor = t0;                       // end of the previous rep, or session start
+  for (let i = 0; i < cfg.reps; i++) {
+    let par = cfg.parTime;
+    if (cfg.progress === "shorter") par = Math.max(MIN_PAR, cfg.parTime - cfg.step * i);
+    else if (cfg.progress === "longer") par = cfg.parTime + cfg.step * i;
+    const delay = cfg.delayMin + rand() * (cfg.delayMax - cfg.delayMin);
+    const startT = cursor + (i === 0 ? 0 : cfg.rest) + delay;
+    const endT = startT + par;
+    reps.push({ n: i + 1, par, startT, endT });
+    cursor = endT;
+  }
+  return reps;
+}
+
+/* ---------- audio ---------- */
+
+let ctx = null, running = false, reps = [], cfgActive = null, rafId = 0,
+    wakeLock = null, silentEl = null, silentURL = null;
+
+function silentWavURL() {
+  if (silentURL) return silentURL;
+  const sr = 8000, n = sr, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, "data"); v.setUint32(40, n, true); new Uint8Array(buf, 44).fill(128);
+  return (silentURL = URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+}
+
+/* Ask iOS to play on the media channel so the silent switch does not mute the beeps. */
+function useMediaChannel() {
+  try {
+    if (navigator.audioSession) { navigator.audioSession.type = "playback"; return; }
+  } catch (_) {}
+  try {
+    silentEl = silentEl || Object.assign(new Audio(), { src: silentWavURL(), loop: true });
+    silentEl.play().catch(() => {});
+  } catch (_) {}
+}
+
+function releaseMediaChannel() {
+  try { if (silentEl) silentEl.pause(); } catch (_) {}
+}
+
+/* Must be called directly from a tap handler. */
+function makeContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) throw new Error("Web Audio is not supported in this browser.");
+  const c = new AC({ latencyHint: "interactive" });
+  const ready = c.resume();
+  useMediaChannel();
+  return { c, ready };
+}
+
+function beep(c, hz, when, volume) {
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sine"; o.frequency.value = hz;
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(volume, when + 0.005);
+  g.gain.setValueAtTime(volume, when + BEEP_SEC - 0.01);
+  g.gain.linearRampToValueAtTime(0, when + BEEP_SEC);
+  o.connect(g).connect(c.destination);
+  o.start(when); o.stop(when + BEEP_SEC + 0.02);
+}
+
+async function lockScreen() {
+  try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+}
+function unlockScreen() {
+  try { if (wakeLock) wakeLock.release(); } catch (_) {}
+  wakeLock = null;
+}
+
+/* ---------- UI ---------- */
+
+function setDisplay(phase, big, sub) {
+  $("display").dataset.phase = phase;
+  $("big").textContent = big;
+  $("sub").textContent = sub;
+}
+function showError(msg) { $("error").textContent = msg || ""; $("error").hidden = !msg; }
+function setRunningUI(on) {
+  $("startBtn").hidden = on; $("stopBtn").hidden = !on; $("testBtn").hidden = on;
+  $("settings").disabled = on;
+}
+const fmt = s => String(+s.toFixed(2));
+let lastAnnounce = "";
+function announce(text) { if (text !== lastAnnounce) { lastAnnounce = text; $("sr").textContent = text; } }
+
+function frame() {
+  if (!running) return;
+  const now = ctx.currentTime;
+  const last = reps[reps.length - 1];
+  if (now >= last.endT + TAIL_SEC) { stop("Finished", true); return; }
+  const cur = reps.find(r => now < r.endT) || last;
+  const label = `Rep ${cur.n} of ${reps.length} · par ${fmt(cur.par)} s`;
+  if (now < cur.startT) {
+    setDisplay("ready", "READY", label);
+    announce(`Rep ${cur.n}, get ready`);
+  } else if (now < cur.endT) {
+    setDisplay("go", (cur.endT - now).toFixed(1), label);
+    announce(`Rep ${cur.n}, go`);
+  } else {
+    setDisplay("done", "0.0", label);
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+async function start() {
+  const r = readConfig();
+  if (r.error) { showError(r.error); return; }
+  showError("");
+  save();
+  let made;
+  try { made = makeContext(); } catch (e) { showError(e.message); return; }
+  ctx = made.c;
+  setRunningUI(true);
+  setDisplay("ready", "…", "Starting audio");
+  try { await made.ready; } catch (_) {}
+  if (ctx !== made.c) return;                      // stopped while starting
+  if (ctx.state !== "running") { stop("", false); showError("Audio could not start. Tap Start again."); return; }
+
+  cfgActive = r.cfg;
+  reps = buildTimeline(cfgActive, ctx.currentTime + 0.1);
+  for (const rep of reps) {
+    beep(ctx, cfgActive.startHz, rep.startT, cfgActive.volume);
+    beep(ctx, cfgActive.endHz, rep.endT, cfgActive.volume);
+  }
+  running = true;
+  lastAnnounce = "";
+  ctx.onstatechange = () => {
+    if (running && ctx.state !== "running") stop("", false), showError("Audio was interrupted (screen lock, app switch or call). Session stopped.");
+  };
+  lockScreen();
+  rafId = requestAnimationFrame(frame);
+}
+
+function stop(message, finished) {
+  running = false;
+  cancelAnimationFrame(rafId);
+  const c = ctx; ctx = null;
+  if (c) { c.onstatechange = null; c.close().catch(() => {}); }
+  releaseMediaChannel();
+  unlockScreen();
+  setRunningUI(false);
+  setDisplay(finished ? "done" : "idle", finished ? "Done" : "—", message || "Press Start");
+  if (finished) $("sr").textContent = "Finished";
+}
+
+function testBeeps() {
+  const r = readConfig();
+  if (r.error) { showError(r.error); return; }
+  showError("");
+  let made;
+  try { made = makeContext(); } catch (e) { showError(e.message); return; }
+  $("testBtn").disabled = true;
+  made.ready.then(() => {
+    const t = made.c.currentTime + 0.1;
+    beep(made.c, r.cfg.startHz, t, r.cfg.volume);
+    beep(made.c, r.cfg.endHz, t + 0.8, r.cfg.volume);
+  }).catch(() => {});
+  setTimeout(() => {
+    made.c.close().catch(() => {});
+    if (!running) releaseMediaChannel();
+    $("testBtn").disabled = false;
+  }, 1800);
+}
+
+/* ---------- settings persistence ---------- */
+
+function save() {
+  try {
+    const data = {}; for (const id of FIELDS) data[id] = $(id).value;
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  } catch (_) {}
+}
+function load() {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (_) {}
+  for (const id of FIELDS) $(id).value = data[id] ?? DEFAULTS[id];
+}
+function updateStepRow() { $("stepRow").hidden = $("progress").value === "none"; }
+
+load();
+updateStepRow();
+for (const id of FIELDS) $(id).addEventListener("change", () => { save(); updateStepRow(); });
+$("progress").addEventListener("input", updateStepRow);
+$("startBtn").addEventListener("click", start);
+$("stopBtn").addEventListener("click", () => stop("Stopped", false));
+$("testBtn").addEventListener("click", testBeeps);
+
+document.addEventListener("visibilitychange", () => {
+  if (!running) return;
+  if (document.visibilityState === "visible") {
+    if (ctx && ctx.state !== "running") { stop("", false); showError("Audio was interrupted (screen lock, app switch or call). Session stopped."); }
+    else lockScreen();
+  }
+});
+
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+<script src="common.js"></script>
+</body>
+</html>
