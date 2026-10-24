@@ -59,8 +59,18 @@
 
   <h2>Sound</h2>
   <div class="card">
-    <div class="row"><label for="startHz">Start beep (Hz)</label><input id="startHz" type="text" inputmode="numeric"></div>
-    <div class="row"><label for="endHz">Par beep (Hz)</label><input id="endHz" type="text" inputmode="numeric"></div>
+    <div class="row"><label for="startHz">Start beep</label>
+      <select id="startHz">
+        <option value="3000">High</option>
+        <option value="2000">Medium</option>
+        <option value="1000">Low</option>
+      </select></div>
+    <div class="row"><label for="endHz">Par beep</label>
+      <select id="endHz">
+        <option value="3000">High</option>
+        <option value="2000">Medium</option>
+        <option value="1000">Low</option>
+      </select></div>
     <div class="row"><label for="volume">Volume</label><input id="volume" type="range" min="10" max="100" step="5"></div>
     <div class="note">Volume here is the beep level inside the app. The phone's volume still applies.</div>
   </div>
@@ -101,7 +111,7 @@ function readConfig() {
     bad(!(cfg.rest >= 0 && cfg.rest <= 600), "Rest must be between 0 and 600 seconds.") ||
     bad(!(cfg.delayMin >= 0 && cfg.delayMin <= 60), "Start delay min must be between 0 and 60 seconds.") ||
     bad(!(cfg.delayMax >= cfg.delayMin && cfg.delayMax <= 60), "Start delay max must be between the min and 60 seconds.") ||
-    bad(!(cfg.startHz >= 200 && cfg.startHz <= 8000 && cfg.endHz >= 200 && cfg.endHz <= 8000), "Beep pitch must be between 200 and 8000 Hz.");
+    bad(!(cfg.startHz > 0 && cfg.endHz > 0), "Choose a start and par beep pitch.");
   return error ? { error } : { cfg };
 }
 
@@ -288,7 +298,13 @@ function save() {
 function load() {
   let data = {};
   try { data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (_) {}
-  for (const id of FIELDS) $(id).value = data[id] ?? DEFAULTS[id];
+  for (const id of FIELDS) {
+    const el = $(id);
+    el.value = data[id] ?? DEFAULTS[id];
+    /* A saved value that is not one of the select's options (e.g. a custom Hz from an
+       earlier version) falls back to the default. */
+    if (el.tagName === "SELECT" && el.value !== String(data[id] ?? DEFAULTS[id])) el.value = DEFAULTS[id];
+  }
 }
 function updateStepRow() { $("stepRow").hidden = $("progress").value === "none"; }
 
