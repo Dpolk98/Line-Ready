@@ -1,4 +1,4 @@
-const CACHE = "range-calc-v2";
+const CACHE = "range-calc-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-180.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

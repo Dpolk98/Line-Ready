@@ -97,6 +97,7 @@ const TARGETS = [
   {id:"fence-6ft",name:"Privacy fence (6 ft)",category:"household",heightCm:182.9,approximate:true,note:"Nominal height"},
   {id:"stop-sign",name:"Stop sign face",category:"street",heightCm:76.2,approximate:false,note:"30 in octagon, MUTCD conventional road size"},
   {id:"traffic-cone",name:"Traffic cone",category:"street",heightCm:71.1,approximate:true,note:"28 in common size"},
+  {id:"uspsa-target",name:"USPSA target (full size)",category:"sports",heightCm:76,approximate:false,note:"Cardboard silhouette, about 30 in tall by 18 in wide"},
   {id:"hoop-rim",name:"Basketball rim height",category:"sports",heightCm:304.8,approximate:false,note:"10 ft regulation"},
   {id:"backboard",name:"Basketball backboard",category:"sports",heightCm:106.7,approximate:true,note:"42 in regulation height"}
 ];
@@ -167,7 +168,8 @@ function update() {
     out.textContent = "—"; out.classList.add("empty");
   } else {
     const v = state.unit === "m" ? m : m * YARDS_PER_METER;
-    out.textContent = `${Math.round(v)} ${state.unit}`;
+    const tens = Math.round(v / 10) * 10;   /* nearest 10 */
+    out.textContent = tens === 0 ? `<5 ${state.unit}` : `${tens} ${state.unit}`;
     out.classList.remove("empty");
   }
 }
