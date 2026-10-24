@@ -4,8 +4,5 @@
     <circle cx="256" cy="256" r="150"/>
     <path d="M256 70v100M256 342v100M70 256h100M342 256h100"/>
   </g>
-  <g fill="#fff">
-    <rect x="256" y="226" width="4" height="60" opacity="0"/>
-    <circle cx="256" cy="256" r="8"/>
-  </g>
+  <circle cx="256" cy="256" r="8" fill="#fff"/>
 </svg>

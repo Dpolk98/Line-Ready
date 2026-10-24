@@ -24,7 +24,7 @@
     drawer.id = "drawer";
     drawer.setAttribute("aria-label", "Main menu");
     drawer.innerHTML =
-      '<div class="drawer-head"><span>Menu</span>' +
+      '<div class="drawer-head"><span>Line Ready</span>' +
       '<button class="iconbtn" type="button" id="closeBtn" aria-label="Close menu">' + CLOSE_ICON + "</button></div><ul>" +
       PAGES.map(p =>
         '<li><a href="' + p.href + '"' + (p.href === current ? ' aria-current="page"' : "") + ">" +

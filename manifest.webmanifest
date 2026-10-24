@@ -1,6 +1,6 @@
 {
-  "name": "Range Calculator",
-  "short_name": "Range Calc",
+  "name": "Line Ready",
+  "short_name": "Line Ready",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
