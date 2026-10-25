@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon.svg">
-<script>try{if(localStorage.getItem("line-ready-theme")==="classic")document.documentElement.setAttribute("data-theme","classic")}catch(e){}</script>
+<script>try{var t=localStorage.getItem("line-ready-theme");if(t==="classic"||t==="glass")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="themes.css">
 <title>Settings · Line Ready</title>
@@ -34,19 +34,21 @@
 <div class="card" role="radiogroup" aria-label="Theme">
   <label class="row"><span>Default</span><input type="radio" name="theme" value="default"></label>
   <label class="row"><span>Classic 2000s</span><input type="radio" name="theme" value="classic"></label>
+  <label class="row"><span>Liquid Glass</span><input type="radio" name="theme" value="glass"></label>
   <div class="note">The theme changes appearance only. It is saved on this device.</div>
 </div>
 
 <script>
 "use strict";
 const THEME_KEY = "line-ready-theme";
+const THEMES = ["default", "classic", "glass"];
 const radios = document.querySelectorAll('input[name="theme"]');
 
 function savedTheme() {
-  try { return localStorage.getItem(THEME_KEY) === "classic" ? "classic" : "default"; } catch (_) { return "default"; }
+  try { const t = localStorage.getItem(THEME_KEY); return THEMES.includes(t) ? t : "default"; } catch (_) { return "default"; }
 }
 function applyTheme(name) {
-  if (name === "classic") document.documentElement.setAttribute("data-theme", "classic");
+  if (name !== "default") document.documentElement.setAttribute("data-theme", name);
   else document.documentElement.removeAttribute("data-theme");
   try { localStorage.setItem(THEME_KEY, name); } catch (_) {}
 }

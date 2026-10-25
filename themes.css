@@ -118,3 +118,212 @@
 :root[data-theme="classic"] .toast {
   background: #ffffe1; color: #000; border: 1px solid #000; border-radius: 0; font: 12px Tahoma, Verdana, sans-serif; padding: 5px 9px;
 }
+
+
+/* =====================================================================
+   Theme: "glass" (Liquid Glass)
+   Translucent, blurred, light-catching surfaces over a colorful backdrop, with tinted glass
+   for controls. Follows the system light / dark setting. Appearance only.
+   ===================================================================== */
+
+:root[data-theme="glass"] {
+  color-scheme: light;
+  --text: #14213d; --muted: rgba(20,33,61,.62); --accent: #0a6cff;
+  --bg: #e9eefc; --card: rgba(255,255,255,.4); --line: rgba(255,255,255,.55);
+  --g-a: rgba(255,255,255,.62); --g-b: rgba(255,255,255,.2);
+  --g-border: rgba(255,255,255,.75); --g-edge: rgba(255,255,255,.95); --g-shadow: rgba(60,70,170,.24);
+  --g-glow: rgba(110,90,255,.30);
+  --field: rgba(255,255,255,.5); --field-shadow: rgba(40,50,120,.2);
+  --blur: blur(26px) saturate(190%);
+  background-color: #e9eefc;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="glass"] {
+    color-scheme: dark;
+    --text: #f4f6ff; --muted: rgba(235,240,255,.68); --accent: #6cb2ff;
+    --bg: #0b1020; --card: rgba(255,255,255,.08); --line: rgba(255,255,255,.14);
+    --g-a: rgba(255,255,255,.18); --g-b: rgba(255,255,255,.05);
+    --g-border: rgba(255,255,255,.3); --g-edge: rgba(255,255,255,.42); --g-shadow: rgba(0,0,0,.5);
+    --g-glow: rgba(120,100,255,.35);
+    --field: rgba(255,255,255,.1); --field-shadow: rgba(0,0,0,.45);
+    background-color: #0b1020;
+  }
+}
+
+/* colorful backdrop the glass refracts (fixed, so it stays put while the page scrolls) */
+:root[data-theme="glass"] body { background: transparent; color: var(--text); }
+:root[data-theme="glass"] body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(60% 42% at 10% 6%,  #7cc0ff 0%, transparent 70%),
+    radial-gradient(55% 40% at 95% 16%, #d1a0ff 0%, transparent 70%),
+    radial-gradient(60% 48% at 90% 88%, #ffa9cf 0%, transparent 70%),
+    radial-gradient(58% 46% at 6% 92%,  #8ff0d2 0%, transparent 70%),
+    radial-gradient(40% 28% at 52% 52%, #ffe0a0 0%, transparent 72%),
+    #e9eefc;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="glass"] body::before {
+    background:
+      radial-gradient(60% 42% at 10% 6%,  #1f63ff 0%, transparent 70%),
+      radial-gradient(55% 40% at 95% 16%, #8a3dff 0%, transparent 70%),
+      radial-gradient(60% 48% at 90% 88%, #ff2f86 0%, transparent 70%),
+      radial-gradient(58% 46% at 6% 92%,  #00b39a 0%, transparent 70%),
+      radial-gradient(40% 28% at 52% 52%, #ff9a3c 0%, transparent 72%),
+      #0b1020;
+  }
+}
+
+/* glass surfaces */
+:root[data-theme="glass"] .card {
+  background:
+    radial-gradient(130% 70% at 0% 0%, var(--g-edge), transparent 52%),
+    linear-gradient(135deg, var(--g-a), var(--g-b));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid var(--g-border); border-radius: 28px;
+  box-shadow:
+    inset 0 1px 0 var(--g-edge),
+    inset 0 -1px 0 rgba(255,255,255,.14),
+    inset 0 -16px 30px -20px var(--g-glow),
+    0 14px 34px var(--g-shadow);
+}
+:root[data-theme="glass"] .row { border-top: 1px solid var(--line); padding: 10px 18px; }
+:root[data-theme="glass"] .row:first-child { border-top: 0; }
+:root[data-theme="glass"] label { font-weight: 500; }
+:root[data-theme="glass"] h2 {
+  margin: 24px 0 8px 20px; font-size: 13px; font-weight: 600; letter-spacing: .03em; text-transform: none; color: var(--muted);
+}
+:root[data-theme="glass"] .note,
+:root[data-theme="glass"] .formula,
+:root[data-theme="glass"] .display .sub { color: var(--muted); }
+:root[data-theme="glass"] .note { padding: 8px 18px 14px; }
+:root[data-theme="glass"] .error { color: #ff453a; font-weight: 600; }
+:root[data-theme="glass"] a { color: var(--accent); }
+
+/* masthead: blue to violet tinted glass pill */
+:root[data-theme="glass"] .titlebar {
+  position: relative; padding: 6px 18px 6px 6px; margin: 0 0 12px; border-radius: 999px; overflow: hidden;
+  background:
+    radial-gradient(90% 140% at 8% 0%, rgba(255,255,255,.7), transparent 55%),
+    linear-gradient(120deg, rgba(40,140,255,.72), rgba(140,90,255,.58) 60%, rgba(255,110,190,.5));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid var(--g-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -10px 22px -14px rgba(60,20,160,.5), 0 12px 30px rgba(70,80,220,.35);
+}
+:root[data-theme="glass"] .titlebar h1 { color: #fff; font-weight: 700; text-shadow: 0 1px 8px rgba(20,40,140,.55); }
+:root[data-theme="glass"] .titlebar .iconbtn { color: #fff; margin-left: 0; }
+:root[data-theme="glass"] .iconbtn:active { background: rgba(255,255,255,.3); }
+
+/* controls */
+:root[data-theme="glass"] input[type=text],
+:root[data-theme="glass"] select {
+  font-size: 16px; color: var(--text); background: var(--field);
+  border: 1px solid var(--g-border); border-radius: 14px; padding: 6px 12px;
+  box-shadow: inset 0 2px 6px var(--field-shadow), 0 1px 0 var(--g-edge);
+}
+:root[data-theme="glass"] input::placeholder { color: var(--muted); }
+
+:root[data-theme="glass"] .btn {
+  border-radius: 999px; color: #fff; border: 1px solid rgba(255,255,255,.7);
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.65), transparent 50%),
+    linear-gradient(180deg, rgba(86,170,255,.95), rgba(10,100,255,.82));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  text-shadow: 0 1px 4px rgba(0,40,140,.45);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -8px 16px -8px rgba(0,50,170,.5), 0 8px 22px rgba(10,100,255,.4);
+}
+:root[data-theme="glass"] .btn.secondary {
+  color: var(--accent); text-shadow: none;
+  background: radial-gradient(120% 90% at 20% 0%, var(--g-edge), transparent 55%), linear-gradient(180deg, var(--g-a), var(--g-b));
+  box-shadow: inset 0 1px 1px var(--g-edge), 0 8px 22px var(--g-shadow);
+}
+:root[data-theme="glass"] .btn.stop {
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.6), transparent 50%),
+    linear-gradient(180deg, rgba(255,120,108,.95), rgba(235,40,30,.85));
+  text-shadow: 0 1px 4px rgba(120,0,0,.45);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -8px 16px -8px rgba(150,0,0,.5), 0 8px 22px rgba(235,40,30,.4);
+}
+:root[data-theme="glass"] .btn:active { transform: scale(.97); }
+
+:root[data-theme="glass"] .seg {
+  background: rgba(255,255,255,.22); border: 1px solid var(--g-border); border-radius: 999px; padding: 3px;
+  box-shadow: inset 0 2px 6px var(--field-shadow);
+}
+:root[data-theme="glass"] .seg button { border-radius: 999px; color: var(--text); font-weight: 500; }
+:root[data-theme="glass"] .seg button[aria-pressed=true] {
+  color: #fff; font-weight: 600; text-shadow: 0 1px 4px rgba(0,40,140,.45);
+  background: radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.6), transparent 55%),
+              linear-gradient(180deg, rgba(86,170,255,.95), rgba(10,100,255,.82));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.85), 0 4px 14px rgba(10,100,255,.45);
+}
+
+/* readouts: gradient numerals, plus a colored glow behind the timer for each phase */
+:root[data-theme="glass"] .result,
+:root[data-theme="glass"] .display .big {
+  background: linear-gradient(180deg, #3f9bff, #7b4dff); -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+:root[data-theme="glass"] .result.empty,
+:root[data-theme="glass"] .display[data-phase=idle] .big {
+  background: none; color: var(--muted); -webkit-text-fill-color: var(--muted);
+}
+:root[data-theme="glass"] .display { border-radius: 28px 28px 0 0; }
+:root[data-theme="glass"] .display[data-phase=ready] .big { background-image: linear-gradient(180deg, #ffc247, #ff7a1a); }
+:root[data-theme="glass"] .display[data-phase=go] .big { background-image: linear-gradient(180deg, #62f2a0, #08b98a); }
+:root[data-theme="glass"] .display[data-phase=done] .big { background-image: linear-gradient(180deg, #5ac8ff, #8a5cff); }
+:root[data-theme="glass"] .display[data-phase=ready] { background: radial-gradient(75% 95% at 50% 35%, rgba(255,170,50,.38), transparent 72%); }
+:root[data-theme="glass"] .display[data-phase=go]    { background: radial-gradient(75% 95% at 50% 35%, rgba(40,220,130,.38), transparent 72%); }
+:root[data-theme="glass"] .display[data-phase=done]  { background: radial-gradient(75% 95% at 50% 35%, rgba(100,140,255,.38), transparent 72%); }
+
+/* sidebar: frosted glass panel */
+:root[data-theme="glass"] .scrim { background: rgba(20,30,80,.28); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+:root[data-theme="glass"] .drawer {
+  color: var(--text);
+  background:
+    radial-gradient(120% 50% at 0% 0%, var(--g-edge), transparent 50%),
+    linear-gradient(160deg, var(--g-a), var(--g-b)),
+    linear-gradient(200deg, rgba(120,170,255,.28), rgba(190,130,255,.22));
+  -webkit-backdrop-filter: blur(34px) saturate(190%); backdrop-filter: blur(34px) saturate(190%);
+  border: 1px solid var(--g-border); border-left: 0; border-radius: 0 30px 30px 0;
+  box-shadow: inset 0 1px 0 var(--g-edge), 12px 0 40px var(--g-shadow);
+}
+:root[data-theme="glass"] .drawer-head { color: var(--text); }
+:root[data-theme="glass"] .drawer-head .iconbtn { color: var(--accent); }
+:root[data-theme="glass"] .drawer a { color: var(--text); text-decoration: none; border-radius: 18px; border: 1px solid transparent; }
+:root[data-theme="glass"] .drawer a svg { color: var(--accent); }
+:root[data-theme="glass"] .drawer a[aria-current=page] {
+  font-weight: 600; border-color: var(--g-border);
+  background: radial-gradient(120% 120% at 15% 0%, var(--g-edge), transparent 60%),
+              linear-gradient(120deg, rgba(60,150,255,.35), rgba(160,100,255,.28));
+  box-shadow: inset 0 1px 0 var(--g-edge), 0 6px 18px rgba(80,90,220,.25);
+}
+
+/* lock button: glass sphere, blue when unlocked, red when locked */
+:root[data-theme="glass"] .lockbtn {
+  border: 1px solid rgba(255,255,255,.75);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.8), rgba(255,255,255,0) 42%),
+    linear-gradient(160deg, rgba(96,176,255,.95), rgba(10,90,255,.85));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.95), inset 0 -10px 18px rgba(0,40,170,.4), 0 10px 28px rgba(10,100,255,.55);
+}
+:root[data-theme="glass"] .lockbtn[aria-pressed=true] {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.75), rgba(255,255,255,0) 42%),
+    linear-gradient(160deg, rgba(255,128,116,.95), rgba(232,36,28,.88));
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.95), inset 0 -10px 18px rgba(150,0,0,.4), 0 10px 28px rgba(235,40,30,.55);
+}
+:root[data-theme="glass"] .toast {
+  background: rgba(30,36,70,.55); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 9px 18px;
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 8px 24px rgba(0,0,0,.3);
+}
+
+/* fallbacks: no backdrop-filter support, or the user asked for less transparency */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :root[data-theme="glass"] .card, :root[data-theme="glass"] .drawer { background-color: rgba(245,247,255,.92); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme="glass"] { --g-a: rgba(255,255,255,.9); --g-b: rgba(245,247,255,.85); }
+}
