@@ -1,0 +1,120 @@
+/* Themes. "default" is the base look in app.css. "classic" mimics mid-2000s websites:
+   Verdana type, blue gradient masthead and panel title bars, glossy buttons, hatch-pattern backdrop.
+   Everything is scoped to :root[data-theme="classic"]; markup and behavior are unchanged. */
+
+:root[data-theme="classic"] {
+  color-scheme: light;
+  --bg: #dbe5ef; --card: #ffffff; --text: #222222; --muted: #555555; --line: #e1e8ef; --accent: #336699;
+  background-color: #b9cadb;
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.22) 0 2px, rgba(255,255,255,0) 2px 5px);
+}
+
+/* page frame */
+:root[data-theme="classic"] body {
+  font-family: Verdana, Geneva, Tahoma, sans-serif; font-size: 14px; line-height: 1.45; color: #222;
+  background: #f7f9fb; border: 1px solid #6d8aa8;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.55), 0 4px 14px rgba(0,30,60,.35);
+  width: min(560px, calc(100% - 16px)); max-width: none; margin: 10px auto;
+}
+
+/* masthead */
+:root[data-theme="classic"] .titlebar {
+  background: linear-gradient(#5a8fc7 0%, #3a6ea5 48%, #2f5f94 52%, #3f78b3 100%);
+  border: 1px solid #234a77; border-radius: 6px; padding: 6px 10px 6px 6px; margin: 0 0 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 1px 3px rgba(0,0,0,.3);
+}
+:root[data-theme="classic"] .titlebar h1 {
+  color: #fff; font: bold 22px "Trebuchet MS", Verdana, sans-serif; text-shadow: 1px 1px 0 #1b3c63;
+}
+:root[data-theme="classic"] .titlebar .iconbtn { color: #fff; margin-left: 0; }
+:root[data-theme="classic"] .iconbtn:active { background: rgba(255,255,255,.2); }
+
+/* panels: title bar + bordered box */
+:root[data-theme="classic"] h2 {
+  margin: 16px 0 0; padding: 5px 10px; font: bold 12px Verdana, Geneva, sans-serif; letter-spacing: 0;
+  text-transform: none; color: #1e3f66; text-shadow: 0 1px 0 #fff;
+  background: linear-gradient(#fbfdff, #cfdceb); border: 1px solid #8ea8c3; border-bottom: 0; border-radius: 6px 6px 0 0;
+}
+:root[data-theme="classic"] .card {
+  background: #fff; border: 1px solid #8ea8c3; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+:root[data-theme="classic"] h2 + .card { border-radius: 0 0 6px 6px; }
+:root[data-theme="classic"] .row { border-top: 1px solid #e1e8ef; padding: 8px 10px; }
+:root[data-theme="classic"] .row:nth-child(even) { background: #f3f7fb; }
+:root[data-theme="classic"] label { font-weight: bold; color: #1e3f66; }
+:root[data-theme="classic"] .note,
+:root[data-theme="classic"] .formula,
+:root[data-theme="classic"] .display .sub { color: #555; font-size: 12px; }
+:root[data-theme="classic"] .error { color: #cc0000; font-weight: bold; }
+:root[data-theme="classic"] a { color: #0033cc; text-decoration: underline; }
+
+/* form controls (kept at 16px so iOS does not zoom on focus) */
+:root[data-theme="classic"] input[type=text],
+:root[data-theme="classic"] select {
+  font: 16px Verdana, Geneva, sans-serif; color: #000; background: #fff;
+  border: 1px solid #7f9db9; border-radius: 3px; padding: 5px 7px; box-shadow: inset 1px 1px 2px rgba(0,0,0,.18);
+}
+:root[data-theme="classic"] input::placeholder { color: #8a8a8a; }
+
+/* glossy buttons */
+:root[data-theme="classic"] .btn {
+  font-family: "Trebuchet MS", Verdana, sans-serif; color: #fff; border: 1px solid #1f4e8c; border-radius: 6px;
+  background: linear-gradient(#7db3ee 0%, #3a7bc8 50%, #2a65ad 51%, #3d82d0 100%);
+  text-shadow: 0 -1px 0 rgba(0,0,0,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(0,0,0,.3);
+}
+:root[data-theme="classic"] .btn.secondary {
+  color: #1e3f66; border-color: #8a99a8; text-shadow: 0 1px 0 #fff;
+  background: linear-gradient(#fdfdfd 0%, #eceff2 50%, #dadfe5 51%, #e8ecf0 100%);
+}
+:root[data-theme="classic"] .btn.stop {
+  border-color: #8a1a12; background: linear-gradient(#f59a92 0%, #de4a40 50%, #c9261c 51%, #dc4439 100%);
+}
+:root[data-theme="classic"] .btn:active { filter: brightness(.92); }
+
+/* unit switch */
+:root[data-theme="classic"] .seg { background: #cfdae6; border: 1px solid #8ea8c3; border-radius: 6px; }
+:root[data-theme="classic"] .seg button { color: #1e3f66; font: bold 14px Verdana, sans-serif; border-radius: 4px; }
+:root[data-theme="classic"] .seg button[aria-pressed=true] {
+  background: linear-gradient(#4a82c0, #2f6aa8); color: #fff; text-shadow: 0 -1px 0 rgba(0,0,0,.4);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.35); font-weight: bold;
+}
+
+/* readouts */
+:root[data-theme="classic"] .result {
+  font-family: Georgia, "Times New Roman", serif; font-weight: bold; color: #1e3f66;
+  text-shadow: 1px 1px 0 #fff, 2px 2px 3px rgba(0,0,0,.25);
+}
+:root[data-theme="classic"] .result.empty { color: #9aa7b4; }
+:root[data-theme="classic"] .display { background: linear-gradient(#ffffff, #eef3f8); }
+:root[data-theme="classic"] .display .big { font-family: Georgia, "Times New Roman", serif; }
+:root[data-theme="classic"] .display[data-phase=ready] .big { color: #cc6600; }
+:root[data-theme="classic"] .display[data-phase=go] .big { color: #2e8b00; }
+:root[data-theme="classic"] .display[data-phase=done] .big { color: #1d5fa8; }
+
+/* sidebar */
+:root[data-theme="classic"] .drawer {
+  background: #f4f7fa; border-right: 1px solid #6d8aa8; font-family: Verdana, Geneva, sans-serif; color: #222;
+}
+:root[data-theme="classic"] .drawer-head {
+  background: linear-gradient(#5a8fc7 0%, #3a6ea5 48%, #2f5f94 52%, #3f78b3 100%); color: #fff;
+  border: 1px solid #234a77; border-radius: 6px; padding: 4px 4px 4px 12px; margin-bottom: 10px;
+  font: bold 18px "Trebuchet MS", Verdana, sans-serif; text-shadow: 1px 1px 0 #1b3c63;
+}
+:root[data-theme="classic"] .drawer-head .iconbtn { color: #fff; }
+:root[data-theme="classic"] .drawer a { color: #0033cc; text-decoration: underline; border: 1px solid transparent; border-radius: 4px; font-size: 15px; }
+:root[data-theme="classic"] .drawer a svg { color: #336699; }
+:root[data-theme="classic"] .drawer a[aria-current=page] {
+  background: #fff8c6; border-color: #e0cf7a; color: #222; font-weight: bold; text-decoration: none;
+}
+
+/* lock button keeps its blue (unlocked) / red (locked) meaning */
+:root[data-theme="classic"] .lockbtn {
+  border: 2px solid #1d4f8c; background: radial-gradient(circle at 50% 25%, #7fb2ee, #2f6db5 70%);
+}
+:root[data-theme="classic"] .lockbtn[aria-pressed=true] {
+  border-color: #8a1a12; background: radial-gradient(circle at 50% 25%, #f59a92, #cf2a1e 70%);
+}
+/* XP-style tooltip */
+:root[data-theme="classic"] .toast {
+  background: #ffffe1; color: #000; border: 1px solid #000; border-radius: 0; font: 12px Tahoma, Verdana, sans-serif; padding: 5px 9px;
+}
