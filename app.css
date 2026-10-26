@@ -88,3 +88,17 @@ body.par-page { padding-bottom: max(120px, calc(env(safe-area-inset-bottom) + 10
 .lockbtn.holding { transform: scale(1.08); }
 .toast { position: fixed; z-index: 16; left: 50%; transform: translateX(-50%); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px));
   background: rgba(30,30,32,.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 15px; pointer-events: none; white-space: nowrap; }
+
+/* ---- call out chip, quiz pieces ---- */
+:root { --good: #1f8f3a; --bad: #d92d20; }
+@media (prefers-color-scheme: dark) { :root { --good: #30d158; --bad: #ff6b61; } }
+.cue { display: inline-block; margin: 4px 0 0; padding: 6px 20px; border-radius: 999px; border: 2px solid var(--accent);
+  font-size: 26px; font-weight: 700; color: var(--text); }
+.feedback { padding: 12px 16px; border-top: 1px solid var(--line); }
+.feedback .head { font-weight: 700; margin-bottom: 4px; }
+.feedback .good { color: var(--good); } .feedback .bad { color: var(--bad); }
+.feedback div + div { margin-top: 2px; }
+.stats { padding: 10px 16px; color: var(--muted); font-size: 14px; }
+.reticle-wrap { padding: 10px; }
+.reticle-wrap svg { display: block; width: 100%; height: auto; border-radius: 12px; }
+.value { text-align: right; }

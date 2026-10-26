@@ -327,3 +327,8 @@
 @media (prefers-reduced-transparency: reduce) {
   :root[data-theme="glass"] { --g-a: rgba(255,255,255,.9); --g-b: rgba(245,247,255,.85); }
 }
+
+/* quiz result colors that stay readable in each theme */
+:root[data-theme="classic"] { --good: #1c7a1c; --bad: #cc0000; }
+:root[data-theme="glass"] { --good: #12823a; --bad: #d92d20; }
+@media (prefers-color-scheme: dark) { :root[data-theme="glass"] { --good: #3ee07a; --bad: #ff7b72; } }

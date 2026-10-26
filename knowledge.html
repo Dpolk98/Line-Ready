@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Line Ready">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg">
+<script>try{var t=localStorage.getItem("line-ready-theme");if(t==="classic"||t==="glass")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="themes.css">
+<title>Knowledge · Line Ready</title>
+</head>
+<body>
+<header class="titlebar">
+  <button class="iconbtn" id="menuBtn" type="button" aria-label="Open menu" aria-controls="drawer" aria-expanded="false"></button>
+  <h1>Knowledge</h1>
+</header>
+
+<div class="card">
+  <div class="row"><div class="seg" role="group" aria-label="Quiz">
+    <button type="button" id="tabRange" data-tab="range" aria-pressed="true" aria-controls="panelRange">Range estimation</button>
+    <button type="button" id="tabReticle" data-tab="reticle" aria-pressed="false" aria-controls="panelReticle">Reticle reading</button>
+  </div></div>
+</div>
+
+<!-- ============ Range estimation ============ -->
+<section id="panelRange" aria-label="Range estimation quiz">
+  <h2>Question</h2>
+  <div class="card">
+    <div class="row"><label>Target</label><span class="value" id="rq-target"></span></div>
+    <div class="row"><label>Height</label><span class="value" id="rq-height"></span></div>
+    <div class="row"><label>Measured size</label><span class="value" id="rq-mils"></span></div>
+    <div class="row"><label for="rq-answer">Your range</label>
+      <input id="rq-answer" type="text" inputmode="decimal" placeholder="estimate" autocomplete="off"><span id="rq-unit">m</span></div>
+    <div class="btnrow">
+      <button class="btn" id="rq-submit" type="button">Submit</button>
+      <button class="btn" id="rq-next" type="button" hidden>Next</button>
+      <button class="btn secondary" id="rq-hint" type="button">Formula</button>
+    </div>
+    <div class="feedback" id="rq-feedback" role="status" aria-live="polite" hidden></div>
+  </div>
+
+  <h2>Options</h2>
+  <div class="card">
+    <div class="row"><label for="rq-difficulty">Difficulty</label>
+      <select id="rq-difficulty">
+        <option value="easy">Easy: whole and half mils</option>
+        <option value="standard">Standard: tenths of a mil</option>
+      </select></div>
+    <div class="row"><label for="rq-units">Answer in</label>
+      <select id="rq-units"><option value="m">Meters</option><option value="yd">Yards</option></select></div>
+    <div class="stats" id="rq-stats"></div>
+    <div class="btnrow"><button class="btn secondary" id="rq-reset" type="button">Reset scores</button></div>
+  </div>
+</section>
+
+<!-- ============ Reticle reading ============ -->
+<section id="panelReticle" aria-label="Reticle reading quiz" hidden>
+  <h2>Question</h2>
+  <div class="card">
+    <div class="reticle-wrap"><svg id="rt-svg" role="img" aria-label="A mil reticle with a target"></svg></div>
+    <div class="row"><label id="rt-prompt" for="rt-answer">Measure the target</label>
+      <input id="rt-answer" type="text" inputmode="decimal" placeholder="reading" autocomplete="off"><span>mil</span></div>
+    <div class="btnrow">
+      <button class="btn" id="rt-submit" type="button">Submit</button>
+      <button class="btn" id="rt-next" type="button" hidden>Next</button>
+      <button class="btn secondary" id="rt-hint" type="button">Hint</button>
+    </div>
+    <div class="feedback" id="rt-feedback" role="status" aria-live="polite" hidden></div>
+  </div>
+
+  <h2>Options</h2>
+  <div class="card">
+    <div class="row"><label for="rt-style">Reticle</label>
+      <select id="rt-style">
+        <option value="hash">Mil-hash (0.5 mil marks)</option>
+        <option value="dot">Mil-dot (dots 1 mil apart)</option>
+      </select></div>
+    <div class="row"><label for="rt-kind">Measure</label>
+      <select id="rt-kind">
+        <option value="mixed">Width and height</option>
+        <option value="width">Width only</option>
+        <option value="height">Height only</option>
+      </select></div>
+    <div class="stats" id="rt-stats"></div>
+    <div class="btnrow"><button class="btn secondary" id="rt-reset" type="button">Reset scores</button></div>
+    <div class="note">The reticles are generic illustrations, not a specific manufacturer's design. Answers within 0.2 mil (mil-hash) or 0.3 mil (mil-dot) count as correct.</div>
+  </div>
+</section>
+
+<script src="targets.js"></script>
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const YARDS_PER_METER = 1.0936133;
+const STORE_KEY = "line-ready-knowledge-v1";
+
+/* ====================== pure logic ====================== */
+
+function parseNum(text) {
+  const t = String(text).trim().replace(",", ".");
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(t)) return NaN;
+  return Number(t);
+}
+const roundTo = (x, step) => Math.round(x / step) * step;
+const fix = (x, d = 1) => Number(x.toFixed(d));
+
+/* ---- range estimation ---- */
+
+/* A target, the size it measures in the reticle, and the exact range from range (m) = cm x 10 / mil. */
+function rangeQuestion(difficulty, rand = Math.random) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const target = TARGETS[Math.floor(rand() * TARGETS.length)];
+    let mils;
+    if (difficulty === "easy") {
+      mils = (2 + Math.floor(rand() * 17)) * 0.5;                      // 1.0 to 9.0 mil
+    } else {
+      const rMin = Math.max(10, target.heightCm * 10 / 12), rMax = Math.min(1000, target.heightCm * 10 / 0.8);
+      if (rMax <= rMin) continue;
+      mils = fix(target.heightCm * 10 / (rMin + rand() * (rMax - rMin)), 1);
+    }
+    if (!(mils >= 0.5)) continue;
+    const actualM = target.heightCm * 10 / mils;
+    if (actualM >= 10 && actualM <= 1000) return { target, mils, actualM };
+  }
+  const target = TARGETS.find(t => t.id === "interior-door");
+  return { target, mils: 4, actualM: target.heightCm * 10 / 4 };
+}
+
+function scoreRange(actual, guess) {
+  const errPct = Math.abs(guess - actual) / actual * 100;
+  const rating = errPct <= 5 ? "Excellent" : errPct <= 10 ? "Good" : errPct <= 20 ? "Close" : "Off";
+  return { errPct, rating, within10: errPct <= 10, direction: guess >= actual ? "over" : "under" };
+}
+
+/* ---- reticle reading (all geometry in mils; x right, y down) ---- */
+
+const TOLERANCE = { hash: 0.2, dot: 0.3 };
+
+function reticleQuestion(style, kindPref, rand = Math.random) {
+  const kind = kindPref === "mixed" ? (rand() < 0.5 ? "width" : "height") : kindPref;
+  const r1 = (a, b) => fix(a + rand() * (b - a), 1);
+  if (kind === "width") {
+    const w = r1(1.0, 6.0), h = r1(1.0, 3.0), x0 = r1(-5.6, 5.6 - w);
+    return { kind, style, actual: w, x0, x1: fix(x0 + w, 1), yT: fix(0.5 - h, 1), yB: 0.5 };
+  }
+  const H = r1(1.2, 6.0), yT = r1(-4.4, 4.4 - H), xc = r1(-1, 1);
+  return { kind, style, actual: H, xc, yT, yB: fix(yT + H, 1) };
+}
+
+function scoreReticle(q, guess) {
+  const diff = guess - q.actual, abs = Math.abs(diff);
+  const tol = TOLERANCE[q.style];
+  const rating = abs <= 0.1 + 1e-9 ? "Exact" : abs <= tol + 1e-9 ? "Correct" : "Off";
+  return { diff, rating, correct: rating !== "Off", exact: rating === "Exact" };
+}
+
+/* ====================== saved scores and options ====================== */
+
+const DEFAULT_STATE = {
+  range: { n: 0, within10: 0, errSum: 0 },
+  reticle: { n: 0, correct: 0, exact: 0 },
+  prefs: { tab: "range", difficulty: "easy", units: "m", style: "hash", kind: "mixed" }
+};
+let state = structuredClone(DEFAULT_STATE);
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+  if (saved) for (const k of Object.keys(DEFAULT_STATE)) Object.assign(state[k], saved[k] || {});
+} catch (_) {}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {} }
+
+/* ====================== helpers ====================== */
+
+function feedback(boxId, headText, good, lines) {
+  const box = $(boxId); box.replaceChildren();
+  const head = document.createElement("div");
+  head.className = "head " + (good ? "good" : "bad"); head.textContent = headText; box.appendChild(head);
+  for (const line of lines) { const d = document.createElement("div"); d.textContent = line; box.appendChild(d); }
+  box.hidden = false;
+}
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+
+/* ====================== range estimation UI ====================== */
+
+let rq = null;
+
+function renderRangeStats() {
+  const s = state.range;
+  $("rq-stats").textContent = s.n
+    ? `Answered ${s.n} · within 10%: ${s.within10} (${pct(s.within10, s.n)}%) · average error ${(s.errSum / s.n).toFixed(1)}%`
+    : "No answers yet.";
+}
+
+function newRangeQuestion() {
+  rq = rangeQuestion(state.prefs.difficulty);
+  rq.answered = false;
+  $("rq-target").textContent = rq.target.name;
+  $("rq-height").textContent = `${fix(rq.target.heightCm, 1)} cm` + (rq.target.approximate ? " (approx.)" : "");
+  $("rq-mils").textContent = `${rq.mils.toFixed(1)} mil`;
+  $("rq-unit").textContent = state.prefs.units;
+  $("rq-answer").value = ""; $("rq-answer").disabled = false;
+  $("rq-submit").hidden = false; $("rq-next").hidden = true; $("rq-hint").hidden = false;
+  $("rq-feedback").hidden = true;
+}
+
+function submitRange() {
+  if (!rq || rq.answered) return;
+  const guess = parseNum($("rq-answer").value);
+  if (!(guess > 0)) { feedback("rq-feedback", "Enter your range as a number.", false, []); return; }
+  const unit = state.prefs.units;
+  const actual = unit === "m" ? rq.actualM : rq.actualM * YARDS_PER_METER;
+  const r = scoreRange(actual, guess);
+  rq.answered = true;
+  state.range.n++; state.range.errSum += r.errPct; if (r.within10) state.range.within10++;
+  save(); renderRangeStats();
+  const lines = [
+    `Actual range: ${Math.round(actual)} ${unit}`,
+    `${fix(rq.target.heightCm, 1)} cm × 10 ÷ ${rq.mils.toFixed(1)} mil = ${fix(rq.actualM, 1)} m` +
+      (unit === "yd" ? ` (${fix(actual, 1)} yd)` : "")
+  ];
+  feedback("rq-feedback", `${r.rating}: ${r.errPct.toFixed(1)}% ${r.direction}`, r.within10, lines);
+  $("rq-answer").disabled = true;
+  $("rq-submit").hidden = true; $("rq-next").hidden = false; $("rq-hint").hidden = true;
+  $("rq-next").focus();
+}
+
+function hintRange() {
+  feedback("rq-feedback", "Formula", true, ["Range (m) = target height (cm) × 10 ÷ size in mils", "Yards = meters × 1.094"]);
+}
+
+/* ====================== reticle UI ====================== */
+
+const NS = "http://www.w3.org/2000/svg";
+const VB = { x: -6.4, y: -4.8, w: 12.8, h: 9.6 };
+function svgEl(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function drawTarget(g, q) {
+  if (q.kind === "width") {
+    svgEl("rect", { x: q.x0, y: q.yT, width: fix(q.x1 - q.x0, 1), height: fix(q.yB - q.yT, 1), rx: 0.08, fill: "#4a5568", stroke: "#2d3748", "stroke-width": 0.05 }, g);
+    return;
+  }
+  const H = q.actual, x = q.xc, top = q.yT, fillc = "#2f3640";
+  svgEl("circle", { cx: x, cy: top + 0.065 * H, r: 0.065 * H, fill: fillc }, g);                                   // head: top edge at yT
+  svgEl("rect", { x: x - 0.15 * H, y: top + 0.14 * H, width: 0.30 * H, height: 0.38 * H, rx: 0.04 * H, fill: fillc }, g); // torso
+  svgEl("rect", { x: x - 0.14 * H, y: top + 0.50 * H, width: 0.12 * H, height: 0.50 * H, fill: fillc }, g);          // legs: feet at yT + H
+  svgEl("rect", { x: x + 0.02 * H, y: top + 0.50 * H, width: 0.12 * H, height: 0.50 * H, fill: fillc }, g);
+}
+
+/* Draw the reticle features in one color; called twice (white halo, then black) so they read on any background. */
+function drawReticleLines(g, style, color, extra) {
+  const w = 0.035 + extra, line = (x1, y1, x2, y2, sw = w) => svgEl("line", { x1, y1, x2, y2, stroke: color, "stroke-width": sw }, g);
+  line(-6.2, 0, 6.2, 0); line(0, -4.6, 0, 4.6);
+  if (style === "hash") {
+    for (let k = 1; k <= 12; k++) { const len = k % 2 ? 0.1 : 0.2, p = k * 0.5; for (const s of [-1, 1]) { line(s * p, -len, s * p, len); if (p <= 4.5) line(-len, s * p, len, s * p); } }
+  } else {
+    for (let k = 1; k <= 5; k++) for (const s of [-1, 1]) {
+      svgEl("circle", { cx: s * k, cy: 0, r: 0.1 + extra / 2, fill: color }, g);
+      if (k <= 4) svgEl("circle", { cx: 0, cy: s * k, r: 0.1 + extra / 2, fill: color }, g);
+    }
+  }
+}
+
+function drawReticleLabels(g) {
+  const t = (x, y, text) => {
+    const e = svgEl("text", { x, y, "font-size": 0.34, "text-anchor": "middle", "font-family": "system-ui, sans-serif", fill: "#111", stroke: "#fff", "stroke-width": 0.09, "paint-order": "stroke" }, g);
+    e.textContent = text;
+  };
+  for (let k = 1; k <= 6; k++) for (const s of [-1, 1]) t(s * k, 0.58, k);
+  for (let k = 1; k <= 4; k++) for (const s of [-1, 1]) t(0.42, s * k + 0.12, k);
+}
+
+function drawReveal(g, q) {
+  const red = "#d92d20", dash = { stroke: red, "stroke-width": 0.04, "stroke-dasharray": "0.15 0.1" };
+  const label = (x, y, text, anchor) => { const e = svgEl("text", { x, y, "font-size": 0.4, "font-weight": 700, "text-anchor": anchor, "font-family": "system-ui, sans-serif", fill: red, stroke: "#fff", "stroke-width": 0.1, "paint-order": "stroke" }, g); e.textContent = text; };
+  if (q.kind === "width") {
+    svgEl("line", { x1: q.x0, y1: -4.6, x2: q.x0, y2: 4.6, ...dash }, g);
+    svgEl("line", { x1: q.x1, y1: -4.6, x2: q.x1, y2: 4.6, ...dash }, g);
+    const y = Math.min(q.yT, 0) - 0.5;
+    svgEl("line", { x1: q.x0, y1: y, x2: q.x1, y2: y, stroke: red, "stroke-width": 0.05 }, g);
+    label((q.x0 + q.x1) / 2, y - 0.15, `${q.actual.toFixed(1)} mil`, "middle");
+    label(q.x0, 4.5, q.x0.toFixed(1), "middle"); label(q.x1, 4.5, q.x1.toFixed(1), "middle");
+  } else {
+    svgEl("line", { x1: -6.2, y1: q.yT, x2: 6.2, y2: q.yT, ...dash }, g);
+    svgEl("line", { x1: -6.2, y1: q.yB, x2: 6.2, y2: q.yB, ...dash }, g);
+    const x = q.xc + 0.15 * q.actual + 0.7;
+    svgEl("line", { x1: x, y1: q.yT, x2: x, y2: q.yB, stroke: red, "stroke-width": 0.05 }, g);
+    label(x + 0.15, (q.yT + q.yB) / 2 - 1.0, `${q.actual.toFixed(1)} mil`, "start");
+  }
+}
+
+let rt = null;
+
+function drawReticle(q, reveal) {
+  const svg = $("rt-svg"); svg.replaceChildren();
+  svg.setAttribute("viewBox", `${VB.x} ${VB.y} ${VB.w} ${VB.h}`);
+  svgEl("rect", { x: VB.x, y: VB.y, width: VB.w, height: VB.h, fill: "#e4ecf3" }, svg);
+  drawTarget(svgEl("g", {}, svg), q);
+  drawReticleLines(svgEl("g", {}, svg), q.style, "#ffffff", 0.07);
+  drawReticleLines(svgEl("g", {}, svg), q.style, "#111111", 0);
+  if (q.style === "hash") drawReticleLabels(svgEl("g", {}, svg));
+  if (reveal) drawReveal(svgEl("g", {}, svg), q);
+}
+
+function renderReticleStats() {
+  const s = state.reticle;
+  $("rt-stats").textContent = s.n
+    ? `Answered ${s.n} · correct: ${s.correct} (${pct(s.correct, s.n)}%) · exact: ${s.exact}`
+    : "No answers yet.";
+}
+
+function newReticleQuestion() {
+  rt = reticleQuestion(state.prefs.style, state.prefs.kind);
+  rt.answered = false;
+  $("rt-prompt").textContent = rt.kind === "width" ? "Width of the plate" : "Height of the silhouette";
+  $("rt-answer").value = ""; $("rt-answer").disabled = false;
+  $("rt-submit").hidden = false; $("rt-next").hidden = true; $("rt-hint").hidden = false;
+  $("rt-feedback").hidden = true;
+  drawReticle(rt, false);
+  $("rt-svg").setAttribute("aria-label", `A ${rt.style === "hash" ? "mil-hash" : "mil-dot"} reticle with a ${rt.kind === "width" ? "plate" : "standing silhouette"}. ` +
+    `Measure its ${rt.kind} in mils.`);
+}
+
+function submitReticle() {
+  if (!rt || rt.answered) return;
+  const guess = parseNum($("rt-answer").value);
+  if (!(guess > 0)) { feedback("rt-feedback", "Enter the size as a number of mils.", false, []); return; }
+  const r = scoreReticle(rt, guess);
+  rt.answered = true;
+  state.reticle.n++; if (r.correct) state.reticle.correct++; if (r.exact) state.reticle.exact++;
+  save(); renderReticleStats();
+  const d = String(+Math.abs(r.diff).toFixed(2));
+  const lines = [`Actual: ${rt.actual.toFixed(1)} mil` + (r.diff ? ` · you were ${d} mil ${r.diff > 0 ? "high" : "low"}` : "")];
+  lines.push(rt.kind === "width"
+    ? `Edges at ${rt.x0.toFixed(1)} and ${rt.x1.toFixed(1)} mil: ${rt.x1.toFixed(1)} − (${rt.x0.toFixed(1)}) = ${rt.actual.toFixed(1)} mil`
+    : `Top at ${rt.yT.toFixed(1)} and feet at ${rt.yB.toFixed(1)} mil: ${rt.yB.toFixed(1)} − (${rt.yT.toFixed(1)}) = ${rt.actual.toFixed(1)} mil`);
+  feedback("rt-feedback", r.rating, r.correct, lines);
+  drawReticle(rt, true);
+  $("rt-answer").disabled = true;
+  $("rt-submit").hidden = true; $("rt-next").hidden = false; $("rt-hint").hidden = true;
+  $("rt-next").focus();
+}
+
+function hintReticle() {
+  const marks = rt.style === "hash" ? "The marks are 0.5 mil apart; the longer ones are whole mils." : "The dots are 1 mil apart, center to center, so estimate between them.";
+  feedback("rt-feedback", "Hint", true, [
+    rt.kind === "width" ? "Read where the left and right edges fall along the horizontal line, then subtract."
+                        : "Read where the top and the feet fall along the vertical line, then subtract.",
+    marks
+  ]);
+}
+
+/* ====================== wiring ====================== */
+
+function showTab(name) {
+  state.prefs.tab = name; save();
+  $("panelRange").hidden = name !== "range"; $("panelReticle").hidden = name !== "reticle";
+  document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tab === name)));
+}
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+$("rq-submit").addEventListener("click", submitRange);
+$("rq-next").addEventListener("click", () => { newRangeQuestion(); $("rq-answer").focus(); });
+$("rq-hint").addEventListener("click", hintRange);
+$("rq-answer").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitRange(); } });
+$("rq-difficulty").addEventListener("change", e => { state.prefs.difficulty = e.target.value; save(); newRangeQuestion(); });
+$("rq-units").addEventListener("change", e => { state.prefs.units = e.target.value; save(); newRangeQuestion(); });
+$("rq-reset").addEventListener("click", () => { state.range = structuredClone(DEFAULT_STATE.range); save(); renderRangeStats(); });
+
+$("rt-submit").addEventListener("click", submitReticle);
+$("rt-next").addEventListener("click", () => { newReticleQuestion(); $("rt-answer").focus(); });
+$("rt-hint").addEventListener("click", hintReticle);
+$("rt-answer").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitReticle(); } });
+$("rt-style").addEventListener("change", e => { state.prefs.style = e.target.value; save(); newReticleQuestion(); });
+$("rt-kind").addEventListener("change", e => { state.prefs.kind = e.target.value; save(); newReticleQuestion(); });
+$("rt-reset").addEventListener("click", () => { state.reticle = structuredClone(DEFAULT_STATE.reticle); save(); renderReticleStats(); });
+
+for (const [id, key] of [["rq-difficulty", "difficulty"], ["rq-units", "units"], ["rt-style", "style"], ["rt-kind", "kind"]]) {
+  const el = $(id); el.value = state.prefs[key];
+  if (el.value !== state.prefs[key]) el.value = DEFAULT_STATE.prefs[key];
+  state.prefs[key] = el.value;
+}
+renderRangeStats(); renderReticleStats();
+newRangeQuestion(); newReticleQuestion();
+showTab(state.prefs.tab === "reticle" ? "reticle" : "range");
+
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+<script src="common.js"></script>
+</body>
+</html>
