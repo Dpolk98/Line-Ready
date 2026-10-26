@@ -1,4 +1,4 @@
-const CACHE = "line-ready-v17";
+const CACHE = "line-ready-v18";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-180.png", "./icon-512.png", "./par.html", "./app.css", "./common.js", "./settings.html", "./themes.css", "./knowledge.html", "./targets.js"];
 
 // Precache with cache: "reload" so files come from the server, not the browser's HTTP cache

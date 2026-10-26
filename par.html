@@ -86,7 +86,7 @@
       Target number: the voice says only the number (for example "2"); the screen shows "Target 2".<br>
       Color: a color name and a matching colored box.<br>
       Custom list: your own words, separated by commas.<br><br>
-      Announce "Before the start beep" gives it during the start delay so you can find the target before the beep; "At the start beep" gives it with the beep to test your reaction.<br><br>
+      Announce "Before the start beep" gives it during the start delay so you can find the target before the beep (if the voice is on, the start beep waits until the call out has finished); "At the start beep" gives it with the beep to test your reaction.<br><br>
       Test beeps plays only the start and par beeps, without a call out.</div>
   </div>
 
@@ -126,7 +126,7 @@ const DEFAULTS = { parTime: "3", reps: "5", progress: "none", step: "0.1", rest:
                    cueMode: "off", cueCount: "3", cueList: "Left, Center, Right", cueDelivery: "both", cueTiming: "before" };
 const FIELDS = Object.keys(DEFAULTS);
 const STORE_KEY = "rangecalc-par-v1";
-const BEEP_SEC = 0.3, MIN_PAR = 0.2, MIN_DELAY = 1, MAX_REPS = 100, TAIL_SEC = 0.6;
+const BEEP_SEC = 0.3, MIN_PAR = 0.2, MIN_DELAY = 1, CUE_GAP_SEC = 0.3, MAX_REPS = 100, TAIL_SEC = 0.6;
 const SPEECH_OK = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 const COLORS = [["Red", "#e5271c", "#fff"], ["Blue", "#0a60ff", "#fff"], ["Green", "#1f9d3a", "#fff"],
                 ["Yellow", "#f2c200", "#111"], ["White", "#f4f4f4", "#111"]];
@@ -139,6 +139,9 @@ function cueOptions(cfg) {
 }
 
 /* ---------- pure logic ---------- */
+
+/* Rough length of a spoken call out at rate 1.05 (a single number is about 0.4 s). */
+const speechSec = cue => 0.35 + 0.075 * (cue.say || cue.text).length;
 
 function parseNum(text) {
   const t = String(text).trim().replace(",", ".");
@@ -187,11 +190,13 @@ function buildTimeline(cfg, t0, rand = Math.random) {
     else if (cfg.progress === "longer") par = cfg.parTime + cfg.step * i;
     const delay = cfg.delayMin + rand() * (cfg.delayMax - cfg.delayMin);
     const readyT = cursor + (i === 0 ? 0 : cfg.rest);
-    const startT = readyT + delay;
-    const endT = startT + par;
     const cue = options.length ? options[Math.floor(rand() * options.length)] : null;
+    let startT = readyT + delay;
     // "before": shortly after the rep becomes ready (clear of the previous par beep); "beep": with the start beep
     const cueT = cue ? (cfg.cueTiming === "beep" ? startT : readyT + 0.4) : null;
+    // A beep that starts while iOS is still speaking can cut the voice off, so let the spoken call out finish first.
+    if (cue && cfg.voice && cfg.cueTiming !== "beep") startT = Math.max(startT, cueT + speechSec(cue) + CUE_GAP_SEC);
+    const endT = startT + par;
     reps.push({ n: i + 1, par, readyT, startT, endT, cue, cueT });
     cursor = endT;
   }
@@ -260,12 +265,15 @@ function unlockScreen() {
 
 /* ---------- call outs ---------- */
 
+let utterance = null;   // keep a reference: an utterance that is garbage collected can stop mid-speech
 function speak(text) {
   try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.05; u.volume = 1;
-    speechSynthesis.speak(u);
+    // Cancelling right before speak() can make WebKit drop the new utterance, so only cancel when needed.
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    if (speechSynthesis.paused) speechSynthesis.resume();
+    utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05; utterance.volume = 1;
+    speechSynthesis.speak(utterance);
   } catch (_) {}
 }
 /* iOS only allows speech that follows a tap; an empty utterance spoken from the Start tap unlocks later ones. */
