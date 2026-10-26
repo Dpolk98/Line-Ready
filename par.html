@@ -71,7 +71,7 @@
       </select></div>
     <div class="row" id="cueCountRow"><label for="cueCount">Number of targets</label><input id="cueCount" type="text" inputmode="numeric"></div>
     <div class="row" id="cueListRow"><label for="cueList">Call outs</label><input id="cueList" type="text" inputmode="text" autocapitalize="words" placeholder="Left, Center, Right"></div>
-    <div class="row" id="cueDeliveryRow"><label for="cueDelivery">Delivery</label>
+    <div class="row" id="cueDeliveryRow" hidden><label for="cueDelivery">Delivery</label>
       <select id="cueDelivery">
         <option value="both">Voice and screen</option>
         <option value="voice">Voice only</option>
@@ -82,11 +82,11 @@
         <option value="before">Before the start beep</option>
         <option value="beep">At the start beep</option>
       </select></div>
-    <div class="note" id="cueNote" hidden>Call outs tell you which target to engage on each rep, so you react to an instruction instead of a fixed plan. Before every rep the app picks one at random (the same one can come up twice in a row) and gives it to you by voice, on screen, or both.<br><br>
-      Target number: the voice says only the number (for example "2"); the screen shows "Target 2".<br>
+    <div class="note" id="cueNote" hidden>Call outs tell you which target to engage on each rep, so you react to an instruction instead of a fixed plan. Before every rep the app picks one at random (the same one can come up twice in a row) and shows it on screen.<br><br>
+      Target number: for example "Target 2".<br>
       Color: a color name and a matching colored box.<br>
       Custom list: your own words, separated by commas.<br><br>
-      Announce "Before the start beep" gives it during the start delay so you can find the target before the beep (if the voice is on, the start beep waits until the call out has finished); "At the start beep" gives it with the beep to test your reaction.<br><br>
+      Announce "Before the start beep" shows it during the start delay so you can find the target before the beep; "At the start beep" shows it with the beep to test your reaction.<br><br>
       Test beeps plays only the start and par beeps, without a call out.</div>
   </div>
 
@@ -128,6 +128,9 @@ const FIELDS = Object.keys(DEFAULTS);
 const STORE_KEY = "rangecalc-par-v1";
 const BEEP_SEC = 0.3, MIN_PAR = 0.2, MIN_DELAY = 1, CUE_GAP_SEC = 0.3, MAX_REPS = 100, TAIL_SEC = 0.6;
 const SPEECH_OK = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+// Voice call outs are hidden until they work on iPhone (they stopped mid call out up to v18).
+// Set to true to show the Delivery option again; the voice code below is kept.
+const VOICE_ENABLED = false;
 const COLORS = [["Red", "#e5271c", "#fff"], ["Blue", "#0a60ff", "#fff"], ["Green", "#1f9d3a", "#fff"],
                 ["Yellow", "#f2c200", "#111"], ["White", "#f4f4f4", "#111"]];
 
@@ -158,7 +161,7 @@ function readConfig() {
     startHz: parseNum(v("startHz")), endHz: parseNum(v("endHz")), volume: parseNum(v("volume")) / 100,
     cueMode: v("cueMode"), cueCount: parseNum(v("cueCount")),
     cueItems: v("cueList").split(",").map(x => x.trim()).filter(Boolean),
-    cueDelivery: v("cueDelivery"), cueTiming: v("cueTiming")
+    cueDelivery: VOICE_ENABLED ? v("cueDelivery") : "screen", cueTiming: v("cueTiming")
   };
   const bad = (cond, msg) => cond ? msg : null;
   const error =
@@ -421,7 +424,8 @@ function updateCueRows() {
   const m = $("cueMode").value;
   $("cueCountRow").hidden = m !== "targets";
   $("cueListRow").hidden = m !== "custom";
-  $("cueDeliveryRow").hidden = $("cueTimingRow").hidden = m === "off";
+  $("cueDeliveryRow").hidden = !VOICE_ENABLED || m === "off";
+  $("cueTimingRow").hidden = m === "off";
 }
 
 /* ---------- screen lock (hold 3 s to lock / unlock) ---------- */
