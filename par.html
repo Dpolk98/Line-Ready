@@ -26,6 +26,7 @@
 <div class="card">
   <div class="display" id="display" data-phase="idle">
     <div class="big" id="big">—</div>
+    <div class="cue" id="cue" hidden></div>
     <div class="sub" id="sub">Press Start</div>
   </div>
   <div class="error" id="error" role="alert" hidden></div>
@@ -57,6 +58,31 @@
     <div class="row"><label for="delayMin">Start delay min (s)</label><input id="delayMin" type="text" inputmode="decimal"></div>
     <div class="row"><label for="delayMax">Start delay max (s)</label><input id="delayMax" type="text" inputmode="decimal"></div>
     <div class="note">The delay is chosen at random between min and max before each start beep. Set both equal for a fixed delay. For reps after the first, the wait after the previous par beep is the rest plus the delay. Par is measured from the start of the start beep.</div>
+  </div>
+
+  <h2>Call outs</h2>
+  <div class="card">
+    <div class="row"><label for="cueMode">Call outs</label>
+      <select id="cueMode">
+        <option value="off">Off</option>
+        <option value="targets">Target number</option>
+        <option value="colors">Color</option>
+        <option value="custom">Custom list</option>
+      </select></div>
+    <div class="row" id="cueCountRow"><label for="cueCount">Number of targets</label><input id="cueCount" type="text" inputmode="numeric"></div>
+    <div class="row" id="cueListRow"><label for="cueList">Call outs</label><input id="cueList" type="text" inputmode="text" autocapitalize="words" placeholder="Left, Center, Right"></div>
+    <div class="row" id="cueDeliveryRow"><label for="cueDelivery">Delivery</label>
+      <select id="cueDelivery">
+        <option value="both">Voice and screen</option>
+        <option value="voice">Voice only</option>
+        <option value="screen">Screen only</option>
+      </select></div>
+    <div class="row" id="cueTimingRow"><label for="cueTiming">Announce</label>
+      <select id="cueTiming">
+        <option value="before">Before the start beep</option>
+        <option value="beep">At the start beep</option>
+      </select></div>
+    <div class="note">One call out is picked at random for each rep, so the same one can repeat. "Before" announces it shortly after the rep becomes ready, ahead of the random delay; keep the start delay minimum at 1 s or more so it finishes before the beep. Test beeps also plays a sample call out.</div>
   </div>
 
   <h2>Sound</h2>
@@ -91,10 +117,21 @@
 const $ = id => document.getElementById(id);
 
 const DEFAULTS = { parTime: "3", reps: "5", progress: "none", step: "0.1", rest: "5",
-                   delayMin: "1", delayMax: "4", startHz: "2000", endHz: "1000", volume: "80" };
+                   delayMin: "1", delayMax: "4", startHz: "2000", endHz: "1000", volume: "80",
+                   cueMode: "off", cueCount: "3", cueList: "Left, Center, Right", cueDelivery: "both", cueTiming: "before" };
 const FIELDS = Object.keys(DEFAULTS);
 const STORE_KEY = "rangecalc-par-v1";
 const BEEP_SEC = 0.3, MIN_PAR = 0.2, MAX_REPS = 100, TAIL_SEC = 0.6;
+const SPEECH_OK = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+const COLORS = [["Red", "#e5271c", "#fff"], ["Blue", "#0a60ff", "#fff"], ["Green", "#1f9d3a", "#fff"],
+                ["Yellow", "#f2c200", "#111"], ["White", "#f4f4f4", "#111"]];
+
+function cueOptions(cfg) {
+  if (cfg.cueMode === "targets") return Array.from({ length: cfg.cueCount }, (_, i) => ({ text: `Target ${i + 1}` }));
+  if (cfg.cueMode === "colors") return COLORS.map(([text, color, ink]) => ({ text, color, ink }));
+  if (cfg.cueMode === "custom") return cfg.cueItems.map(text => ({ text }));
+  return [];
+}
 
 /* ---------- pure logic ---------- */
 
@@ -110,7 +147,10 @@ function readConfig() {
     parTime: parseNum(v("parTime")), reps: parseNum(v("reps")), progress: v("progress"),
     step: parseNum(v("step")), rest: parseNum(v("rest")),
     delayMin: parseNum(v("delayMin")), delayMax: parseNum(v("delayMax")),
-    startHz: parseNum(v("startHz")), endHz: parseNum(v("endHz")), volume: parseNum(v("volume")) / 100
+    startHz: parseNum(v("startHz")), endHz: parseNum(v("endHz")), volume: parseNum(v("volume")) / 100,
+    cueMode: v("cueMode"), cueCount: parseNum(v("cueCount")),
+    cueItems: v("cueList").split(",").map(x => x.trim()).filter(Boolean),
+    cueDelivery: v("cueDelivery"), cueTiming: v("cueTiming")
   };
   const bad = (cond, msg) => cond ? msg : null;
   const error =
@@ -120,22 +160,34 @@ function readConfig() {
     bad(!(cfg.rest >= 0 && cfg.rest <= 600), "Rest must be between 0 and 600 seconds.") ||
     bad(!(cfg.delayMin >= 0 && cfg.delayMin <= 60), "Start delay min must be between 0 and 60 seconds.") ||
     bad(!(cfg.delayMax >= cfg.delayMin && cfg.delayMax <= 60), "Start delay max must be between the min and 60 seconds.") ||
-    bad(!(cfg.startHz > 0 && cfg.endHz > 0), "Choose a start and par beep pitch.");
-  return error ? { error } : { cfg };
+    bad(!(cfg.startHz > 0 && cfg.endHz > 0), "Choose a start and par beep pitch.") ||
+    bad(cfg.cueMode === "targets" && !(Number.isInteger(cfg.cueCount) && cfg.cueCount >= 2 && cfg.cueCount <= 10), "Number of targets must be a whole number from 2 to 10.") ||
+    bad(cfg.cueMode === "custom" && (cfg.cueItems.length < 2 || cfg.cueItems.length > 20), "Enter 2 to 20 call outs separated by commas.") ||
+    bad(cfg.cueMode === "custom" && cfg.cueItems.some(x => x.length > 30), "Each call out must be 30 characters or fewer.");
+  if (error) return { error };
+  const wantVoice = cfg.cueDelivery !== "screen", wantScreen = cfg.cueDelivery !== "voice";
+  cfg.voice = wantVoice && SPEECH_OK;
+  cfg.screen = wantScreen || (wantVoice && !SPEECH_OK);   // never leave a call out with no output
+  return { cfg };
 }
 
 /* Absolute event times (seconds on the audio clock) for every rep. */
 function buildTimeline(cfg, t0, rand = Math.random) {
   const reps = [];
+  const options = cueOptions(cfg);
   let cursor = t0;                       // end of the previous rep, or session start
   for (let i = 0; i < cfg.reps; i++) {
     let par = cfg.parTime;
     if (cfg.progress === "shorter") par = Math.max(MIN_PAR, cfg.parTime - cfg.step * i);
     else if (cfg.progress === "longer") par = cfg.parTime + cfg.step * i;
     const delay = cfg.delayMin + rand() * (cfg.delayMax - cfg.delayMin);
-    const startT = cursor + (i === 0 ? 0 : cfg.rest) + delay;
+    const readyT = cursor + (i === 0 ? 0 : cfg.rest);
+    const startT = readyT + delay;
     const endT = startT + par;
-    reps.push({ n: i + 1, par, startT, endT });
+    const cue = options.length ? options[Math.floor(rand() * options.length)] : null;
+    // "before": shortly after the rep becomes ready (clear of the previous par beep); "beep": with the start beep
+    const cueT = cue ? (cfg.cueTiming === "beep" ? startT : readyT + 0.4) : null;
+    reps.push({ n: i + 1, par, readyT, startT, endT, cue, cueT });
     cursor = endT;
   }
   return reps;
@@ -201,6 +253,38 @@ function unlockScreen() {
   wakeLock = null;
 }
 
+/* ---------- call outs ---------- */
+
+function speak(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05; u.volume = 1;
+    speechSynthesis.speak(u);
+  } catch (_) {}
+}
+/* iOS only allows speech that follows a tap; an empty utterance spoken from the Start tap unlocks later ones. */
+function unlockSpeech() {
+  try { if (SPEECH_OK) { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } } catch (_) {}
+}
+function setCueChip(cue) {
+  const el = $("cue");
+  el.textContent = cue.text;
+  el.style.background = cue.color || ""; el.style.color = cue.ink || ""; el.style.borderColor = cue.color || "";
+}
+function updateCue(cur, now) {
+  const el = $("cue");
+  const active = !!cur.cue && now >= cur.cueT && now < cur.endT;
+  if (active && cfgActive.voice && !cur.spoken) { cur.spoken = true; speak(cur.cue.text); }
+  const show = active && cfgActive.screen;
+  if (show && el.dataset.rep !== String(cur.n)) {
+    setCueChip(cur.cue); el.dataset.rep = String(cur.n);
+    announce(`Rep ${cur.n}, ${cur.cue.text}`);
+  }
+  el.hidden = !show;
+  if (!show) delete el.dataset.rep;
+}
+
 /* ---------- UI ---------- */
 
 function setDisplay(phase, big, sub) {
@@ -224,6 +308,7 @@ function frame() {
   if (now >= last.endT + TAIL_SEC) { stop("Finished", true); return; }
   const cur = reps.find(r => now < r.endT) || last;
   const label = `Rep ${cur.n} of ${reps.length} · par ${fmt(cur.par)} s`;
+  updateCue(cur, now);
   if (now < cur.startT) {
     setDisplay("ready", "READY", label);
     announce(`Rep ${cur.n}, get ready`);
@@ -241,6 +326,7 @@ async function start() {
   if (r.error) { showError(r.error); return; }
   showError("");
   save();
+  if (r.cfg.voice) unlockSpeech();
   let made;
   try { made = makeContext(); } catch (e) { showError(e.message); return; }
   ctx = made.c;
@@ -268,6 +354,8 @@ async function start() {
 function stop(message, finished) {
   running = false;
   cancelAnimationFrame(rafId);
+  try { if (SPEECH_OK) speechSynthesis.cancel(); } catch (_) {}
+  $("cue").hidden = true; delete $("cue").dataset.rep;
   const c = ctx; ctx = null;
   if (c) { c.onstatechange = null; c.close().catch(() => {}); }
   releaseMediaChannel();
@@ -284,6 +372,15 @@ function testBeeps() {
   let made;
   try { made = makeContext(); } catch (e) { showError(e.message); return; }
   $("testBtn").disabled = true;
+  if (r.cfg.cueMode !== "off") {
+    if (r.cfg.voice) unlockSpeech();
+    const opts = cueOptions(r.cfg), sample = opts[Math.floor(Math.random() * opts.length)];
+    setTimeout(() => {
+      if (running) return;
+      if (r.cfg.voice) speak(sample.text);
+      if (r.cfg.screen) { setCueChip(sample); $("cue").hidden = false; setTimeout(() => { if (!running) $("cue").hidden = true; }, 2000); }
+    }, 1500);
+  }
   made.ready.then(() => {
     const t = made.c.currentTime + 0.1;
     beep(made.c, r.cfg.startHz, t, r.cfg.volume);
@@ -316,6 +413,12 @@ function load() {
   }
 }
 function updateStepRow() { $("stepRow").hidden = $("progress").value === "none"; }
+function updateCueRows() {
+  const m = $("cueMode").value;
+  $("cueCountRow").hidden = m !== "targets";
+  $("cueListRow").hidden = m !== "custom";
+  $("cueDeliveryRow").hidden = $("cueTimingRow").hidden = m === "off";
+}
 
 /* ---------- screen lock (hold 3 s to lock / unlock) ---------- */
 
@@ -373,7 +476,9 @@ lockBtn.addEventListener("blur", cancelHold);
 
 load();
 updateStepRow();
-for (const id of FIELDS) $(id).addEventListener("change", () => { save(); updateStepRow(); });
+updateCueRows();
+for (const id of FIELDS) $(id).addEventListener("change", () => { save(); updateStepRow(); updateCueRows(); });
+$("cueMode").addEventListener("input", updateCueRows);
 $("progress").addEventListener("input", updateStepRow);
 $("startBtn").addEventListener("click", start);
 $("stopBtn").addEventListener("click", () => stop("Stopped", false));
