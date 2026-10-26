@@ -2,7 +2,7 @@
 
 Line Ready is a vanilla HTML/CSS/JS progressive web app (PWA) for shooters. It is hosted on GitHub Pages and installed to an iPhone Home Screen (iOS 27). It runs locally with no backend; online features are a possible future addition.
 
-Owner: Daniel. Last shipped version: v16 (call outs note collapsible behind an "i" info button), service worker cache `line-ready-v16`. v15: target call outs speak only the number; start delay minimum 1 s. Previous bundle: v14 (`LineReady-v14-callouts-and-knowledge-page.zip`).
+Owner: Daniel. Last shipped version: v17 (Test beeps no longer plays a sample call out), service worker cache `line-ready-v17`. v16: call outs note collapsible behind an "i" info button. v15: target call outs speak only the number; start delay minimum 1 s. Previous bundle: v14 (`LineReady-v14-callouts-and-knowledge-page.zip`).
 
 ## Stack and constraints
 - Plain HTML, CSS and JavaScript. No framework, no build step, no dependencies. Keep it that way unless asked.
@@ -40,7 +40,7 @@ Adding a page: create the HTML, add it to `PAGES` in `common.js` (with an icon),
 - Settings: par time, reps, progression step, rest, random delay min/max, start and end beep pitch (High 3000 Hz / Medium 2000 Hz / Low 1000 Hz), volume, call outs.
 - `buildTimeline(cfg, t0, rand)` returns reps with `readyT, startT, endT, cue, cueT`. All beeps are scheduled up front on the `AudioContext` clock. The `AudioContext` is created inside the tap handler (iOS requirement).
 - Silent switch handling: `navigator.audioSession.type = "playback"`, with a silent looping WAV as fallback. A Wake Lock is requested. If the audio context goes to "interrupted" or suspended, the session aborts.
-- Call outs: `cueMode` (off / targets / colors / custom), `cueCount`, `cueList`, `cueDelivery` (both / voice / screen), target call outs show "Target N" on screen but speak only "N" (cue `say` field), `cueTiming` (before the beep: `cueT = readyT + 0.4`; or at the beep: `cueT = startT`). Voice uses `speechSynthesis`, unlocked on Start with a silent utterance. If speech is unsupported, the on-screen `#cue` chip is the fallback. "Test beeps" also plays a sample call out. The Call outs explanation (`#cueNote`) is hidden by default and toggled by the circled "i" button (`#cueInfoBtn`, `.info-btn`) in the section heading.
+- Call outs: `cueMode` (off / targets / colors / custom), `cueCount`, `cueList`, `cueDelivery` (both / voice / screen), target call outs show "Target N" on screen but speak only "N" (cue `say` field), `cueTiming` (before the beep: `cueT = readyT + 0.4`; or at the beep: `cueT = startT`). Voice uses `speechSynthesis`, unlocked on Start with a silent utterance. If speech is unsupported, the on-screen `#cue` chip is the fallback. "Test beeps" plays only the two beeps, with no call out (removed in v17 because it confused testing). The Call outs explanation (`#cueNote`) is hidden by default and toggled by the circled "i" button (`#cueInfoBtn`, `.info-btn`) in the section heading.
 - Lock button: floating, shown only on this page. Hold 3 s to lock or unlock. Locked = red background with closed padlock; unlocked = blue background with open padlock. When locked, every other body child is `inert`; scrolling stays enabled (`touch-action` is left to allow it on the page, the button itself uses `touch-action:none`). Hold progress is shown as a ring.
 
 ## Knowledge page details (`knowledge.html`)

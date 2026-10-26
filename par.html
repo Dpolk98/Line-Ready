@@ -87,7 +87,7 @@
       Color: a color name and a matching colored box.<br>
       Custom list: your own words, separated by commas.<br><br>
       Announce "Before the start beep" gives it during the start delay so you can find the target before the beep; "At the start beep" gives it with the beep to test your reaction.<br><br>
-      Test beeps plays a sample call out.</div>
+      Test beeps plays only the start and par beeps, without a call out.</div>
   </div>
 
   <h2>Sound</h2>
@@ -377,15 +377,6 @@ function testBeeps() {
   let made;
   try { made = makeContext(); } catch (e) { showError(e.message); return; }
   $("testBtn").disabled = true;
-  if (r.cfg.cueMode !== "off") {
-    if (r.cfg.voice) unlockSpeech();
-    const opts = cueOptions(r.cfg), sample = opts[Math.floor(Math.random() * opts.length)];
-    setTimeout(() => {
-      if (running) return;
-      if (r.cfg.voice) speak(sample.say || sample.text);
-      if (r.cfg.screen) { setCueChip(sample); $("cue").hidden = false; setTimeout(() => { if (!running) $("cue").hidden = true; }, 2000); }
-    }, 1500);
-  }
   made.ready.then(() => {
     const t = made.c.currentTime + 0.1;
     beep(made.c, r.cfg.startHz, t, r.cfg.volume);
