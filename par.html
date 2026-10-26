@@ -60,7 +60,7 @@
     <div class="note">The delay is chosen at random between min and max before each start beep. The minimum is 1 s. Set both equal for a fixed delay. For reps after the first, the wait after the previous par beep is the rest plus the delay. Par is measured from the start of the start beep.</div>
   </div>
 
-  <h2>Call outs</h2>
+  <h2 class="h2-info">Call outs <button class="info-btn" id="cueInfoBtn" type="button" aria-label="About call outs" aria-expanded="false" aria-controls="cueNote">i</button></h2>
   <div class="card">
     <div class="row"><label for="cueMode">Call outs</label>
       <select id="cueMode">
@@ -82,7 +82,12 @@
         <option value="before">Before the start beep</option>
         <option value="beep">At the start beep</option>
       </select></div>
-    <div class="note">Call outs tell you which target to engage on each rep, so you react to an instruction instead of a fixed plan. Before every rep the app picks one at random (the same one can come up twice in a row) and gives it to you by voice, on screen, or both. Target number: the voice says only the number (for example "2"); the screen shows "Target 2". Color: a color name and a matching colored box. Custom list: your own words, separated by commas. Announce "Before the start beep" gives it during the start delay so you can find the target before the beep; "At the start beep" gives it with the beep to test your reaction. Test beeps plays a sample call out.</div>
+    <div class="note" id="cueNote" hidden>Call outs tell you which target to engage on each rep, so you react to an instruction instead of a fixed plan. Before every rep the app picks one at random (the same one can come up twice in a row) and gives it to you by voice, on screen, or both.<br><br>
+      Target number: the voice says only the number (for example "2"); the screen shows "Target 2".<br>
+      Color: a color name and a matching colored box.<br>
+      Custom list: your own words, separated by commas.<br><br>
+      Announce "Before the start beep" gives it during the start delay so you can find the target before the beep; "At the start beep" gives it with the beep to test your reaction.<br><br>
+      Test beeps plays a sample call out.</div>
   </div>
 
   <h2>Sound</h2>
@@ -479,6 +484,11 @@ updateStepRow();
 updateCueRows();
 for (const id of FIELDS) $(id).addEventListener("change", () => { save(); updateStepRow(); updateCueRows(); });
 $("cueMode").addEventListener("input", updateCueRows);
+$("cueInfoBtn").addEventListener("click", () => {
+  const open = $("cueNote").hidden;
+  $("cueNote").hidden = !open;
+  $("cueInfoBtn").setAttribute("aria-expanded", String(open));
+});
 $("progress").addEventListener("input", updateStepRow);
 $("startBtn").addEventListener("click", start);
 $("stopBtn").addEventListener("click", () => stop("Stopped", false));
