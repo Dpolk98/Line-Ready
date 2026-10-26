@@ -57,7 +57,7 @@
     <div class="row"><label for="rest">Rest between reps (s)</label><input id="rest" type="text" inputmode="decimal"></div>
     <div class="row"><label for="delayMin">Start delay min (s)</label><input id="delayMin" type="text" inputmode="decimal"></div>
     <div class="row"><label for="delayMax">Start delay max (s)</label><input id="delayMax" type="text" inputmode="decimal"></div>
-    <div class="note">The delay is chosen at random between min and max before each start beep. Set both equal for a fixed delay. For reps after the first, the wait after the previous par beep is the rest plus the delay. Par is measured from the start of the start beep.</div>
+    <div class="note">The delay is chosen at random between min and max before each start beep. The minimum is 1 s. Set both equal for a fixed delay. For reps after the first, the wait after the previous par beep is the rest plus the delay. Par is measured from the start of the start beep.</div>
   </div>
 
   <h2>Call outs</h2>
@@ -82,7 +82,7 @@
         <option value="before">Before the start beep</option>
         <option value="beep">At the start beep</option>
       </select></div>
-    <div class="note">One call out is picked at random for each rep, so the same one can repeat. "Before" announces it shortly after the rep becomes ready, ahead of the random delay; keep the start delay minimum at 1 s or more so it finishes before the beep. Test beeps also plays a sample call out.</div>
+    <div class="note">Call outs tell you which target to engage on each rep, so you react to an instruction instead of a fixed plan. Before every rep the app picks one at random (the same one can come up twice in a row) and gives it to you by voice, on screen, or both. Target number: the voice says only the number (for example "2"); the screen shows "Target 2". Color: a color name and a matching colored box. Custom list: your own words, separated by commas. Announce "Before the start beep" gives it during the start delay so you can find the target before the beep; "At the start beep" gives it with the beep to test your reaction. Test beeps plays a sample call out.</div>
   </div>
 
   <h2>Sound</h2>
@@ -121,13 +121,13 @@ const DEFAULTS = { parTime: "3", reps: "5", progress: "none", step: "0.1", rest:
                    cueMode: "off", cueCount: "3", cueList: "Left, Center, Right", cueDelivery: "both", cueTiming: "before" };
 const FIELDS = Object.keys(DEFAULTS);
 const STORE_KEY = "rangecalc-par-v1";
-const BEEP_SEC = 0.3, MIN_PAR = 0.2, MAX_REPS = 100, TAIL_SEC = 0.6;
+const BEEP_SEC = 0.3, MIN_PAR = 0.2, MIN_DELAY = 1, MAX_REPS = 100, TAIL_SEC = 0.6;
 const SPEECH_OK = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 const COLORS = [["Red", "#e5271c", "#fff"], ["Blue", "#0a60ff", "#fff"], ["Green", "#1f9d3a", "#fff"],
                 ["Yellow", "#f2c200", "#111"], ["White", "#f4f4f4", "#111"]];
 
 function cueOptions(cfg) {
-  if (cfg.cueMode === "targets") return Array.from({ length: cfg.cueCount }, (_, i) => ({ text: `Target ${i + 1}` }));
+  if (cfg.cueMode === "targets") return Array.from({ length: cfg.cueCount }, (_, i) => ({ text: `Target ${i + 1}`, say: String(i + 1) }));
   if (cfg.cueMode === "colors") return COLORS.map(([text, color, ink]) => ({ text, color, ink }));
   if (cfg.cueMode === "custom") return cfg.cueItems.map(text => ({ text }));
   return [];
@@ -158,7 +158,7 @@ function readConfig() {
     bad(!(Number.isInteger(cfg.reps) && cfg.reps >= 1 && cfg.reps <= MAX_REPS), `Reps must be a whole number from 1 to ${MAX_REPS}.`) ||
     bad(cfg.progress !== "none" && !(cfg.step >= 0 && cfg.step <= 60), "Change per rep must be between 0 and 60 seconds.") ||
     bad(!(cfg.rest >= 0 && cfg.rest <= 600), "Rest must be between 0 and 600 seconds.") ||
-    bad(!(cfg.delayMin >= 0 && cfg.delayMin <= 60), "Start delay min must be between 0 and 60 seconds.") ||
+    bad(!(cfg.delayMin >= MIN_DELAY && cfg.delayMin <= 60), `Start delay min must be between ${MIN_DELAY} and 60 seconds.`) ||
     bad(!(cfg.delayMax >= cfg.delayMin && cfg.delayMax <= 60), "Start delay max must be between the min and 60 seconds.") ||
     bad(!(cfg.startHz > 0 && cfg.endHz > 0), "Choose a start and par beep pitch.") ||
     bad(cfg.cueMode === "targets" && !(Number.isInteger(cfg.cueCount) && cfg.cueCount >= 2 && cfg.cueCount <= 10), "Number of targets must be a whole number from 2 to 10.") ||
@@ -275,7 +275,7 @@ function setCueChip(cue) {
 function updateCue(cur, now) {
   const el = $("cue");
   const active = !!cur.cue && now >= cur.cueT && now < cur.endT;
-  if (active && cfgActive.voice && !cur.spoken) { cur.spoken = true; speak(cur.cue.text); }
+  if (active && cfgActive.voice && !cur.spoken) { cur.spoken = true; speak(cur.cue.say || cur.cue.text); }
   const show = active && cfgActive.screen;
   if (show && el.dataset.rep !== String(cur.n)) {
     setCueChip(cur.cue); el.dataset.rep = String(cur.n);
@@ -377,7 +377,7 @@ function testBeeps() {
     const opts = cueOptions(r.cfg), sample = opts[Math.floor(Math.random() * opts.length)];
     setTimeout(() => {
       if (running) return;
-      if (r.cfg.voice) speak(sample.text);
+      if (r.cfg.voice) speak(sample.say || sample.text);
       if (r.cfg.screen) { setCueChip(sample); $("cue").hidden = false; setTimeout(() => { if (!running) $("cue").hidden = true; }, 2000); }
     }, 1500);
   }
